@@ -76,7 +76,6 @@ def save_into_local_database(json_document, col, pid):
         print('Could not collect col,pid %s,%s ' % (col, pid))
     
 
-
 if __name__ == "__main__":
     if sys.argv.__len__() == 3:
         NEW_PIDS = sys.argv[1]
