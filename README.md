@@ -2,7 +2,19 @@
 
 ## Collect PID
 
-Collects PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi).
+Collects PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). Pass a "date from" as an argument is optional. In case of do not pass a "date from" as an argument the script will consider the current date as "date from".
+
+**How to use**
+
+Pass a "date from" as an argument (optional): 
+
+`$ ./collect_pid.py 2019-06-01`
+
+or do not pass a "date from" as an argument (current date):
+
+`$ ./collect_pid.py`
+
+The script will result in a CSV file named `new-pids-from-2019-06-01.csv` (in the former case) wrote in the directory of execution. The date part refers to the argument passed as a parameter.
 
 
 ## Collect Document
