@@ -25,30 +25,31 @@ def save_results_to_csv(objects: {}, path_csv):
     file_results.close()
 
 
-if sys.argv.__len__() == 2:
-    from_date = sys.argv[1]
-else:
-    from_date = date.today().strftime('%Y-%m-%d')
+if __name__ == "__main__":
+    if sys.argv.__len__() == 2:
+        from_date = sys.argv[1]
+    else:
+        from_date = date.today().strftime('%Y-%m-%d')
 
-COLLECTIONS = ['arg', 'bol ', 'chl ', 'col ', 'cri', 'cub', 'esp', 'mex', 'per', 'prt', 'rve', 'scl', 'psi', 'spa', 'sss', 'sza', 'ury', 'ven']
-ARTICLEMETA_URL = 'http://articlemeta.scielo.org'
-ARTICLE_ENDPOINT = '/api/v1/article'
-PATH_CSV = 'new-pids-from-' + from_date + '.csv'
+    COLLECTIONS = ['arg', 'bol ', 'chl ', 'col ', 'cri', 'cub', 'esp', 'mex', 'per', 'prt', 'rve', 'scl', 'psi', 'spa', 'sss', 'sza', 'ury', 'ven']
+    ARTICLEMETA_URL = 'http://articlemeta.scielo.org'
+    ARTICLE_ENDPOINT = '/api/v1/article'
+    PATH_CSV = 'new-pids-from-' + from_date + '.csv'
 
-for c in COLLECTIONS:
-    url = ARTICLEMETA_URL + ARTICLE_ENDPOINT + '/identifiers' + '/?collection=' + c
-    if from_date:
-        url += '&from=' + from_date
+    for c in COLLECTIONS:
+        url = ARTICLEMETA_URL + ARTICLE_ENDPOINT + '/identifiers' + '/?collection=' + c
+        if from_date:
+            url += '&from=' + from_date
 
-    results = requests.get(url)
-    json_results = json.loads(results.content.decode())
-    save_results_to_csv(json_results.get('objects'), PATH_CSV)
+        results = requests.get(url)
+        json_results = json.loads(results.content.decode())
+        save_results_to_csv(json_results.get('objects'), PATH_CSV)
 
-    total = int(json_results.get('meta').get('total'))
-    
-    if total > 1000:
-        for o in range(1000, total, 1000):
-            offset_url = url + '&offset=' + str(o)
-            offset_results = requests.get(offset_url)
-            offset_json_results = json.loads(offset_results.content.decode())
-            save_results_to_csv(offset_json_results.get('objects'), PATH_CSV)
+        total = int(json_results.get('meta').get('total'))
+        
+        if total > 1000:
+            for o in range(1000, total, 1000):
+                offset_url = url + '&offset=' + str(o)
+                offset_results = requests.get(offset_url)
+                offset_json_results = json.loads(offset_results.content.decode())
+                save_results_to_csv(offset_json_results.get('objects'), PATH_CSV)
