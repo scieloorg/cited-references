@@ -16,12 +16,12 @@ def save_results_to_csv(objects: {}, path_csv):
     file_results = open(path_csv, 'a')
     for obj in objects:
         code = obj.get('code')
-        collectoin = obj.get('collection')
+        collection = obj.get('collection')
         doi = obj.get('doi')
         if not doi:
             doi = ''
         processing_date = obj.get('processing_date')
-        file_results.write(','.join([collectoin, code, doi, processing_date]) + '\n')
+        file_results.write(','.join([collection, code, doi, processing_date]) + '\n')
     file_results.close()
 
 
