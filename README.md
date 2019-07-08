@@ -19,7 +19,13 @@ The script will result in a CSV file named `new-pids-from-2019-06-01.csv` (in th
 
 ## Collect Document
 
-Collects Documents through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). It receives the PIDs collected by the `Collect PIDs` script as data input to obtain the documents.
+Collects Documents through the endpoint [http://articlemeta.scielo.org/api/v1/article](http://articlemeta.scielo.org/api/v1/article). It receives the list of PIDs collected by the `Collect PIDs` script as data input to obtain the documents from the remote database SciELO. _The script collects the documents in an async manner_.
+
+**How to use**
+
+`$ ./collect_document.py new-pids-from-2019-06-01.csv refSciELO_001`
+
+The script will collect all the documents (pids in the list `new-pids-from-2019-06-01.csv`) from the remote database SciELO and insert them into the local database (`refSciELO_001`).
 
 
 ## Analyze Document
