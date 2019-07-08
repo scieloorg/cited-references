@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import json
 import requests
 import sys
 
@@ -41,15 +40,13 @@ if __name__ == "__main__":
         if from_date:
             url += '&from=' + from_date
 
-        results = requests.get(url)
-        json_results = json.loads(results.content.decode())
-        save_results_to_csv(json_results.get('objects'), PATH_CSV)
+        results = requests.get(url).json()
+        save_results_to_csv(results.get('objects'), PATH_CSV)
 
-        total = int(json_results.get('meta').get('total'))
+        total = int(results.get('meta').get('total'))
         
         if total > 1000:
             for o in range(1000, total, 1000):
                 offset_url = url + '&offset=' + str(o)
-                offset_results = requests.get(offset_url)
-                offset_json_results = json.loads(offset_results.content.decode())
-                save_results_to_csv(offset_json_results.get('objects'), PATH_CSV)
+                offset_results = requests.get(offset_url).json()
+                save_results_to_csv(offset_results.get('objects'), PATH_CSV)
