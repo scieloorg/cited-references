@@ -33,9 +33,18 @@ The script will collect all the documents (pids in the list `new-pids-from-2019-
 Analyzes Documents with regard to several attributes. It acts in the documents database.
 
 
-## Create/Update citations database refSciELO
+## Create references database ref_scielo
 
-Creates or updates the references database named refSciELO.
+Creates the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each _id is `'_'.join([pid, citation_index_number])` and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
+
+**How to use**
+
+`$ ./create_ref_scielo.py refSciELO_001`
+
+
+## Update references database ref_scielo
+
+Updates the references database named ref_scielo.
 
 
 ## Analyze Reference

@@ -3,6 +3,7 @@ import asyncio
 import sys
 
 from aiohttp import ClientSession
+from asyncio import TimeoutError
 from pymongo import MongoClient
 
 
@@ -12,8 +13,11 @@ async def fetch(url, session, col, pid):
     Calls the method save_into_local_database with the response as a parameter (in json format).
     '''
     async with session.get(url) as response:
-        response = await response.json()
-        save_into_local_database(response, col, pid)
+        try:
+            response = await response.json()
+            save_into_local_database(response, col, pid)
+        except TimeoutError:
+            print('%s,%s timeout' % (col, pid))
 
 
 async def bound_fetch(sem, url, session, col, pid):
@@ -85,7 +89,7 @@ if __name__ == "__main__":
         print('Error: please, provide the name of the local database MongoDB (e.g., refSciELO_001')
         sys.exit(1)
 
-    SEMAPHORE_LIMIT = 100
+    SEMAPHORE_LIMIT = 250
 
     col2pids = parse_new_pids_list(NEW_PIDS)
 
