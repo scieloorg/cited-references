@@ -8,11 +8,11 @@ Collects PIDs through the [articlemeta api](https://github.com/scieloorg/article
 
 Pass a "date from" as an argument (optional): 
 
-`$ ./collect_pid.py 2019-06-01`
+    `$ ./collect_pid.py 2019-06-01`
 
 or do not pass a "date from" as an argument (current date):
 
-`$ ./collect_pid.py`
+    `$ ./collect_pid.py`
 
 The script will result in a CSV file named `new-pids-from-2019-06-01.csv` (in the former case) wrote in the directory of execution. The date part refers to the argument passed as a parameter.
 
@@ -23,7 +23,7 @@ Collects Documents through the endpoint [http://articlemeta.scielo.org/api/v1/ar
 
 **How to use**
 
-`$ ./collect_document.py new-pids-from-2019-06-01.csv refSciELO_001`
+    `$ ./collect_document.py new-pids-from-2019-06-01.csv refSciELO_001`
 
 The script will collect all the documents (pids in the list `new-pids-from-2019-06-01.csv`) from the remote database SciELO and insert them into the local database (`refSciELO_001`).
 
@@ -34,7 +34,7 @@ Creates the references database named ref_scielo. The script receives as data in
 
 **How to use**
 
-`$ ./create_ref_scielo.py refSciELO_001`
+    `$ ./create_ref_scielo.py refSciELO_001`
 
 
 ## Update references database ref_scielo
@@ -54,7 +54,13 @@ Analyzes References with regard to several attributes (e.g., presence or not of 
 
 ## Collect CrossRef Metadata from DOI
 
-Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the Document's DOI (Reference's DOI) as data input.
+Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the Document's DOI (Reference's DOI) as data input. The DOI's metadata is saved into the references database (fields `crossref_metadata` and `status`), according to the following status codes:
+
+Status | Description
+------ | ------------
+1 | DOI were found in CrossRef
+-1 | DOI were not found in CrossRef
+Empty | DOI not searched
 
 
 ## Collect CrossRef Metadata from PID Metadata
@@ -85,6 +91,19 @@ This package includes several micro auxiliary scripts. One of them is `count` th
 
 **How to use**
 
-`$ ./count.py ref_scielo`
+    `$ ./count.py ref_scielo`
 
 where ref_sciele is the database's name.
+
+
+## String Processor
+
+File `string_processor.py` contains the class StringProcessor, which has four methods. These methods are responsible for normalizing texts, as follows:
+
+1. _remove_accents(text: str)_. This method remove accents.
+
+2. _remove_double_spaces(text: str)_. This method remove double spaces.
+
+3. _alpha_num_space(text: str)_. This method holds in the string only alpha and space characters.
+
+4. _preprocess_name(text: str)_. This method first of all remove the string accents, then it holds in the text only alpha and space characters, and finally it removes double spaces.
