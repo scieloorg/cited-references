@@ -28,11 +28,6 @@ Collects Documents through the endpoint [http://articlemeta.scielo.org/api/v1/ar
 The script will collect all the documents (pids in the list `new-pids-from-2019-06-01.csv`) from the remote database SciELO and insert them into the local database (`refSciELO_001`).
 
 
-## Analyze Document
-
-Analyzes Documents with regard to several attributes. It acts in the documents database.
-
-
 ## Create references database ref_scielo
 
 Creates the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each _id is `'_'.join([pid, citation_index_number])` and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
@@ -47,7 +42,12 @@ Creates the references database named ref_scielo. The script receives as data in
 Updates the references database named ref_scielo.
 
 
-## Analyze Reference
+## Analyze Documents
+
+Analyzes Documents with regard to several attributes. It acts in the documents database.
+
+
+## Analyze References
 
 Analyzes References with regard to several attributes (e.g., presence or not of a valid DOI, type of reference). It acts in the references database.
 
@@ -75,3 +75,16 @@ Creates (or updates) a dictionary of Document's Metadata (key) to PID SciELO (va
 ## Match reference with PID SciELO
 
 Match Documents' references (getting its metadata to generate a key) with the dictionary of Metadata: PID SciELO.
+
+
+## Utils
+
+This package includes several micro auxiliary scripts. One of them is `count` that counts the number of registers in a database.
+
+### Count
+
+**How to use**
+
+`$ ./count.py ref_scielo`
+
+where ref_sciele is the database's name.
