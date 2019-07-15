@@ -36,7 +36,6 @@ async def fetch(local_database, collection, url, session, ref_id):
             response = await response.json()
             save_into_local_database(local_database, collection, response, ref_id)
         except TimeoutError:
-            print('Error: timeout %s ' % (ref_id))
             query = { '_id': ref_id }
             new_data = { '$set': { 
                 'status': -2
@@ -44,13 +43,15 @@ async def fetch(local_database, collection, url, session, ref_id):
             }
             local_database[collection].update_one(query, new_data)
         except ContentTypeError:
-            print('Error: type %s ' % (ref_id))
-            query = { '_id': ref_id }
-            new_data = { '$set': { 
-                'status': -1 
+            if response.status == 404:
+                query = { '_id': ref_id }
+                new_data = { '$set': { 
+                    'status': -1 
+                    }
                 }
-            }
-            local_database[collection].update_one(query, new_data)
+                local_database[collection].update_one(query, new_data)
+            else:
+                print('ref: %s status: %d' % (ref_id, response.status))
 
 
 async def bound_fetch(local_database, collection, sem, url, session, ref_id):
@@ -85,7 +86,7 @@ def get_references_with_doi(ref_db_collection):
     Receives a references database's collection.
     Return a pymongo cursor to iterate over references with a doi code.
     '''
-    return ref_db_collection.find({'v237': {'$exists': True}})
+    return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'status': {'$ne': 1}}]})
 
 
 if __name__ == "__main__":
@@ -97,14 +98,14 @@ if __name__ == "__main__":
     REFERENCES_DATA_BASE_NAME = sys.argv[1]
     EMAIL = sys.argv[2]
 
-    SEMAPHORE_LIMIT = 250
+    SEMAPHORE_LIMIT = 20
 
     local_mongo_client = MongoClient()
     local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
 
-    for collection in local_database.collection_names()[1:]:
+    for collection in local_database.collection_names():
         references_with_doi = get_references_with_doi(local_database[collection])
-        print('there are %d references with doi in collection %s' % (references_with_doi.count(), collection))
+        print('there are %d references with doi in collection %s to collect' % (references_with_doi.count(), collection))
 
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
