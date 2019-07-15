@@ -63,6 +63,12 @@ Status | Description
 -2 | Request time out (try again)
 Empty | DOI not searched
 
+**How to use**
+
+    `$ ./collect_metadata_from_crossref.py ref_scielo no-status`
+
+The term "no-status" informs the script to collect metadata for all the references without a status code, i.e, those that it does not tried to collect in previous executions. For collecting all references with a status -1, change the term "no-status" to "-1".
+
 
 ## Collect CrossRef Metadata from PID Metadata
 

@@ -5,8 +5,7 @@ import requests
 import sys
 
 from aiohttp import ClientSession
-from asyncio import TimeoutError
-from aiohttp.client_exceptions import ContentTypeError
+from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from pymongo import MongoClient
 
 
@@ -35,7 +34,7 @@ async def fetch(local_database, collection, url, session, ref_id):
         try:
             response = await response.json()
             save_into_local_database(local_database, collection, response, ref_id)
-        except TimeoutError:
+        except ServerDisconnectedError:
             query = { '_id': ref_id }
             new_data = { '$set': { 
                 'status': -2
@@ -52,7 +51,7 @@ async def fetch(local_database, collection, url, session, ref_id):
                 local_database[collection].update_one(query, new_data)
             else:
                 print('ref: %s status: %d' % (ref_id, response.status))
-
+        
 
 async def bound_fetch(local_database, collection, sem, url, session, ref_id):
     '''
@@ -84,28 +83,34 @@ async def run(local_database, collection, references_with_doi, email:str):
 def get_references_with_doi(ref_db_collection):
     '''
     Receives a references database's collection.
+    Receives a mode (no-status or -1).
     Return a pymongo cursor to iterate over references with a doi code.
     '''
-    return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'status': {'$ne': 1}}]})
+    if STATUS_MODE == 'no-status':
+        return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'status': {'$exists': False}}]})
+    elif STATUS_MODE == '-1':
+        return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'$or': [{'status': {'$exists': False}}, {'status': -1}]}]})
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print('Error: please, enter the references database name')
         print('Error: please, enter the registered e-mail in the crossref service')
+        print('Error: please, enter the status mode [-1 or no-status]')
         sys.exit(1)
 
     REFERENCES_DATA_BASE_NAME = sys.argv[1]
     EMAIL = sys.argv[2]
+    STATUS_MODE = sys.argv[3]
 
-    SEMAPHORE_LIMIT = 20
+    SEMAPHORE_LIMIT = 15
 
     local_mongo_client = MongoClient()
     local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
 
     for collection in local_database.collection_names():
         references_with_doi = get_references_with_doi(local_database[collection])
-        print('there are %d references with doi in collection %s to collect' % (references_with_doi.count(), collection))
+        print('there are %d references with doi in collection %s to be collected' % (references_with_doi.count(), collection))
 
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
