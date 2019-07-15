@@ -1,67 +1,91 @@
 #!/usr/bin/env python3
-from pymongo import MongoClient
-
+import asyncio
 import json
 import requests
 import sys
 
-
-def get_references_with_doi(ref_db):
-    print('getting references with doi')
-    references_with_doi = []
-    for collection in ref_db.collection_names()[:1]:
-        for cit in ref_db[collection].find():
-            if cit.get('v237') is not None:
-                if cit.get('v237')[0].get('_') is not None:
-                    cit['collection'] = collection
-                    references_with_doi.append(cit)
-    print('there are %s references with doi' % len(references_with_doi))
-    return references_with_doi
+from aiohttp import ClientSession
+from asyncio import TimeoutError
+from aiohttp.client_exceptions import ContentTypeError
+from pymongo import MongoClient
 
 
-def get_metadata_from_crossref(ref_db, references: list, email: str):
-    print('getting metadata from crossref and saving it to local references database')
-    CROSS_REF_WORKS_ENDPOINT = 'https://api.crossref.org/works/'
-
-    for index, ref in enumerate(references):
-        print('\r%s: %s of %s' % (ref.get('collection'), index + 1, len(references)), end='')
-        url = CROSS_REF_WORKS_ENDPOINT + ref.get('v237')[0].get('_')
-
-        response_headers = requests.head(url, headers = {'mailto': email})
-
-        if response_headers.status_code == 200:
-            response = requests.get(url, headers = {'mailto': email})
-            if response.status_code == 200:
-                resp_json = json.loads(response.text)
-                if resp_json.get('status') == 'ok':
-                    save_metadata(ref_db, ref, resp_json.get('message'))
-        else: 
-            save_ref_without_metadata(ref_db, ref)
-    return
-
-
-def open_database(references_db_name: str):
-    client = MongoClient()
-    return client[references_db_name]
-
-
-def save_ref_without_metadata(ref_db, reference):
-    query = { '_id': reference.get('_id') }
+def save_into_local_database(local_database, collection, response, ref_id):
+    '''
+    Receives a response (in json format) and its ref_id.
+    Saves the document into the local database.
+    Set status equal to 1 if the DOI exists in the Crossref.
+    Set status equal to -1 if the DOI does not exist in the Crossref.
+    '''
+    query = { '_id': ref_id }
     new_data = { '$set': {
-        'status': -1
-        } 
+        'status': 1, 
+        'crossref_metadata': response.get('message')
+        }
     }
-    ref_db[reference.get('collection')].update_one(query, new_data)
+    local_database[collection].update_one(query, new_data)
 
 
-def save_metadata(ref_db, reference, crossref_metadata):
-    query = { '_id': reference.get('_id') }
-    new_data = { '$set': {
-         'status': 1, 
-         'crossref_metadata': crossref_metadata
-         }
-    }
-    ref_db[reference.get('collection')].update_one(query, new_data)
+async def fetch(local_database, collection, url, session, ref_id):
+    '''
+    Fetchs the url containing the doi code.
+    Calls the method save_into_local_database with the response as a parameter (in json format).
+    '''
+    async with session.get(url) as response:
+        try:
+            response = await response.json()
+            save_into_local_database(local_database, collection, response, ref_id)
+        except TimeoutError:
+            print('Error: timeout %s ' % (ref_id))
+            query = { '_id': ref_id }
+            new_data = { '$set': { 
+                'status': -2
+                }
+            }
+            local_database[collection].update_one(query, new_data)
+        except ContentTypeError:
+            print('Error: type %s ' % (ref_id))
+            query = { '_id': ref_id }
+            new_data = { '$set': { 
+                'status': -1 
+                }
+            }
+            local_database[collection].update_one(query, new_data)
+
+
+async def bound_fetch(local_database, collection, sem, url, session, ref_id):
+    '''
+    Limits the collecting task to a semaphore.
+    '''
+    async with sem:
+        await fetch(local_database, collection, url, session, ref_id)
+
+
+async def run(local_database, collection, references_with_doi, email:str):
+    '''
+    Receives a cursor of references with doi and an e-mail for mounting the crossref request.
+    Creates tasks to collect metadata and save them into the local database.
+    '''
+    url = 'https://api.crossref.org/works/{}'
+    sem = asyncio.Semaphore(SEMAPHORE_LIMIT)
+    tasks = []
+
+    async with ClientSession(headers={'mailto': email}) as session:
+        for ref in references_with_doi:
+            ref_doi = ref.get('v237')[0].get('_')
+            ref_id = ref.get('_id')
+            task = asyncio.ensure_future(bound_fetch(local_database, collection, sem, url.format(ref_doi), session, ref_id))
+            tasks.append(task)
+        responses = asyncio.gather(*tasks)
+        await responses
+
+
+def get_references_with_doi(ref_db_collection):
+    '''
+    Receives a references database's collection.
+    Return a pymongo cursor to iterate over references with a doi code.
+    '''
+    return ref_db_collection.find({'v237': {'$exists': True}})
 
 
 if __name__ == "__main__":
@@ -73,12 +97,15 @@ if __name__ == "__main__":
     REFERENCES_DATA_BASE_NAME = sys.argv[1]
     EMAIL = sys.argv[2]
 
-    # open database
-    ref_db = open_database(REFERENCES_DATA_BASE_NAME)
+    SEMAPHORE_LIMIT = 250
 
-    # get references with doi
-    refs_with_doi = get_references_with_doi(ref_db)
-    
-    # get metadata and save it into references database
-    get_metadata_from_crossref(ref_db, refs_with_doi, EMAIL)
-    
+    local_mongo_client = MongoClient()
+    local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
+
+    for collection in local_database.collection_names()[1:]:
+        references_with_doi = get_references_with_doi(local_database[collection])
+        print('there are %d references with doi in collection %s' % (references_with_doi.count(), collection))
+
+        loop = asyncio.get_event_loop()
+        future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
+        loop.run_until_complete(future)

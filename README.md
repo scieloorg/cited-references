@@ -60,6 +60,7 @@ Status | Description
 ------ | ------------
 1 | DOI were found in CrossRef
 -1 | DOI were not found in CrossRef
+-2 | Request time out (try again)
 Empty | DOI not searched
 
 
