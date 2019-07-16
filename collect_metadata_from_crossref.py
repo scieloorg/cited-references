@@ -5,6 +5,7 @@ import requests
 import sys
 
 from aiohttp import ClientSession
+from asyncio import TimeoutError
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from pymongo import MongoClient
 
@@ -34,7 +35,7 @@ async def fetch(local_database, collection, url, session, ref_id):
         try:
             response = await response.json()
             save_into_local_database(local_database, collection, response, ref_id)
-        except ServerDisconnectedError:
+        except (ServerDisconnectedError, TimeoutError):
             query = { '_id': ref_id }
             new_data = { '$set': { 
                 'status': -2
