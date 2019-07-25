@@ -39,7 +39,11 @@ Creates the references database named ref_scielo. The script receives as data in
 
 ## Update references database ref_scielo
 
-Updates the references database named ref_scielo.
+Updates the references database named ref_scielo. The script receives as data input the name of the documents database and the new_pids.txt generated in a previous step (collect_pid). The existing ref_scielo database will be updated with the new content of the documents database.
+
+**How to use**
+
+    `$ ./update_ref_scielo.py refSciELO_001 new-pids-from-2019-06-10.csv ref_scielo`
 
 
 ## Analyze Documents
@@ -98,9 +102,18 @@ This package includes several micro auxiliary scripts. One of them is `count` th
 
 **How to use**
 
-    `$ ./count.py ref_scielo`
+    `$ ./utils/count.py ref_scielo`
 
-where ref_sciele is the database's name.
+where ref_scielo is the database's name.
+
+
+### Status Check
+
+**How to use**
+
+    `$ ./utils/status_ckeck.py ref_scielo`
+
+where ref_scielo is the database's name.
 
 
 ## String Processor
