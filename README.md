@@ -86,7 +86,21 @@ Collects metadata from the [crossref rest-api](https://www.crossref.org/services
 
 ## Create/Update Dictionary Metadata: PID SciELO
 
-Creates (or updates) a dictionary of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents metadata as data input.
+Creates (or updates) a dictionary of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents metadata as data input. Returns a dictionary in binary format. The key's components could be configured according to the following:
+
+Description | Example
+----------- | -------
+First author - first given name | rafael
+First author - first given name - first char | r
+First author - last surname | damaceno
+Publication date | 1995-05-20
+Journal title | revista de saude publica
+Journal title abbreviated | rev sau pub
+Number of the issue | 1
+Number of the issue order | 1 
+Number of the issue volume | 1
+Number of the first page | 10
+
 
 
 ## Match reference with PID SciELO
