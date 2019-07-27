@@ -1,5 +1,5 @@
 from util.string_processor import StringProcessor
-from xylose.scielodocument import Article, UnavailableMetadataException
+from xylose.scielodocument import Article
 
 
 class DocumentManager(object):
@@ -59,12 +59,10 @@ class DocumentManager(object):
             issue_number = xydoc.issue.number          
             issue_order = xydoc.issue.order
             issue_volume = xydoc.issue.volume
-        except UnavailableMetadataException:
+        except:
             issue_number = ''
             issue_order = ''
             issue_volume = ''
-        except ValueError:
-            pass
 
         if issue_number is None:
             issue_number = ''
