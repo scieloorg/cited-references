@@ -60,12 +60,19 @@ class DocumentManager(object):
             issue_order = xydoc.issue.order
             issue_volume = xydoc.issue.volume
         except UnavailableMetadataException:
-            issue_number = ''         
+            issue_number = ''
             issue_order = ''
             issue_volume = ''
         except ValueError:
-            issue_number = ''         
+            pass
+
+        if issue_number is None:
+            issue_number = ''
+
+        if issue_order is None:
             issue_order = ''
+
+        if issue_volume is None:
             issue_volume = ''
 
         start_page = xydoc.start_page

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import pickle
 import sys
+import os
 
 from model.document_manager import DocumentManager as dm
 from model.file_manager import FileManager as fm
@@ -46,19 +47,17 @@ def update_dict(documents: list, metadata2pid: dict, column_indexes: list, use_f
 
 
 if __name__ == "__main__":
-    if sys.argv.__len__() == 4:
+    if sys.argv.__len__() == 3:
         LOCAL_DOC_DATABASE_NAME = sys.argv[1]
         NEW_PIDS = sys.argv[2]
-        METADATA2PID = sys.argv[3]
     else:
         print('Error: please, provide the name of the local documents database MongoDB (e.g., refSciELO_001)')
         print('Error: please, provide the list of new pids (e.g., new-pids-from-2019-06-10)')
-        print('Error: please, provide the name of the metadata2pid dictionary (e.g., d1.dat)')
         sys.exit(1)
     
     mongo_client = MongoClient()
     doc_local_database = mongo_client[LOCAL_DOC_DATABASE_NAME]
-    metadata2pid = fm.load_dict(METADATA2PID)
+    list_of_dicts = sorted([f for f in os.listdir() if f.endswith('.dat')])
 
     col2newpids = fm.get_col2pids_from_csv(NEW_PIDS)
     print('there are %d new pids' % sum([len(col2newpids.get(col)) for col in col2newpids.keys()]))
@@ -83,11 +82,12 @@ if __name__ == "__main__":
 
     print('updating dictionaries')
     for i, keyset in enumerate([keyset1, keyset2, keyset3, keyset4, keyset5, keyset6, keyset7, keyset8]):
-        new_version_number = str(int(METADATA2PID.split('_')[-1]) + 1)
+        new_version_number = str(int(list_of_dicts[i].split('_')[-1].split('.')[0]) + 1)
         path_dict_name_new_version = 'md2pid_t' + str(i + 1) + '_' + new_version_number + '.dat'
         if i + 1 == 3 or i + 1 == 4 or i + 1 == 7 or i + 1 == 8:
             use_first_char_author_name = True
         else:
             use_first_char_author_name = False
-        keyset_metadata2pid = update_dict(docs, metadata2pid, keyset, use_first_char_author_name)
+        old_dict_version = fm.load_dict(list_of_dicts[i])
+        keyset_metadata2pid = update_dict(docs, old_dict_version, keyset, use_first_char_author_name)
         fm.save_dict(keyset_metadata2pid, path_dict_name_new_version)

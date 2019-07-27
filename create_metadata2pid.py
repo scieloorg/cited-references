@@ -80,5 +80,5 @@ if __name__ == "__main__":
         else:
             use_first_char_author_name = False
         keyset_metadata2pid = create_dict(docs, keyset, use_first_char_author_name)
-        print('there are %s keys in metadata2pid with keyset' + str(i+1) % str(len(keyset_metadata2pid)))
+        print('there are %d keys in the metadata2pid with keyset%d' % (len(keyset_metadata2pid), i + 1))
         fm.save_dict(keyset_metadata2pid, path_dict_name)
