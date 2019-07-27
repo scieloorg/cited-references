@@ -84,23 +84,69 @@ Collects metadata from the [crossref rest-api](https://www.crossref.org/services
 Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the references' metadata as data input.
 
 
-## Create/Update Dictionary Metadata: PID SciELO
+## Create dictionary Metadata to PID SciELO
 
-Creates (or updates) a dictionary of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents metadata as data input. Returns a dictionary in binary format. The key's components could be configured according to the following:
+Creates dictionaries where each key is a comma separated string of document's metadata (attributes) and the value is the corresponding PID SciELO. It receives SciELO documents database name as data input. Returns eight dictionaries each of them in the binary format. There are, until now, eight combinations of document's attributes. The possible attributes are as follows:
 
-Description | Example
------------ | -------
-First author - first given name | rafael
-First author - first given name - first char | r
-First author - last surname | damaceno
-Publication date | 1995-05-20
-Journal title | revista de saude publica
-Journal title abbreviated | rev sau pub
-Number of the issue | 1
-Number of the issue order | 1 
-Number of the issue volume | 1
-Number of the first page | 10
+Code | Description | Example
+---- | ----------- | -------
+FA | First author - first given name | rafael
+FAC | First author - first given name - first char | r
+FALS | First author - last surname | damaceno
+PD | Publication date | 1995-05-20
+JT | Journal title | revista de saude publica
+JTA | Journal title abbreviated | rev sau pub
+IN | Number of the issue | 1
+IO | Number of the issue order | 1 
+IV | Number of the issue volume | 1
+FP | Number of the first page | 10
 
+The eight combinations are as follows:
+
+_Dictionary 1 (percentage of ambiguous cases: 0.44%)_
+
+    FA,FALS,PD,JTA,IN,IO,IV,FP
+
+_Dictionary 2 (percentage of ambiguous cases: 3.72%)_
+
+    FA,FALS,PD,JTA,IN,IO,IV
+
+_Dictionary 3 (percentage of ambiguous cases: 0.46%)_
+
+    FAC,FALS,PD,JTA,IN,IO,IV,FP
+
+_Dictionary 4 (percentage of ambiguous cases: 4.00%)_
+
+    FAC,FALS,PD,JTA,IN,IO,IV
+
+_Dictionary 5 (percentage of ambiguous cases: 0.44%)_
+
+    FA,FALS,PD,JT,IN,IO,IV,FP
+
+_Dictionary 6 (percentage of ambiguous cases: 3.72%)_
+
+    FA,FALS,PD,JT,IN,IO,IV
+
+_Dictionary 7 (percentage of ambiguous cases: 0.46%)_
+
+    FAC,FALS,PD,JT,IN,IO,IV,FP
+
+_Dictionary 8 (percentage of ambiguous cases: 4.00%)_
+
+    FAC,FALS,PD,JT,IN,IO,IV
+
+**How to use**
+
+    `$ ./create_metadata2pid.py refSciELO_001`
+
+
+## Update dictionary Metadata to PID SciELO
+
+Updates the dictionaries of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents database name and the list of new pids to be included in the dictionaries. Returns new dictionaries in binary format. 
+
+**How to use**
+
+    `$ ./update_metadata2pid.py refSciELO_001 new-pids-from-2019-06-10.csv`
 
 
 ## Match reference with PID SciELO

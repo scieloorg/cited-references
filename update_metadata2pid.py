@@ -7,12 +7,11 @@ from model.file_manager import FileManager as fm
 from pymongo import MongoClient
 
 
-def create_dict(documents: list, column_indexes: list, use_first_char_author_name: False):
+def update_dict(documents: list, metadata2pid: dict, column_indexes: list, use_first_char_author_name: False):
     '''
-    Receives a list of documents, column indexes (md2pid settings), and a boolean that indicates the use or not of the first char of the first given name.
-    Returns a dictionary where each key is a comma separated string composed by the metadata attributes indicated in the m2pid settings.
+    Receives a list of documents, a metadata2pid dictionary, column indexes (md2pid settings), and a boolean that indicates the use or not of the first char of the first given name.
+    Returns the updated version of the dictionary where each key is a comma separated string composed by the metadata attributes indicated in the m2pid settings.
     '''
-    metadata2pid = {}
     for doc in documents:
         doc_attrs = []
         for i in column_indexes:
@@ -47,18 +46,28 @@ def create_dict(documents: list, column_indexes: list, use_first_char_author_nam
 
 
 if __name__ == "__main__":
-    if sys.argv.__len__() == 2:
+    if sys.argv.__len__() == 4:
         LOCAL_DOC_DATABASE_NAME = sys.argv[1]
+        NEW_PIDS = sys.argv[2]
+        METADATA2PID = sys.argv[3]
     else:
-        print('Error: please, provide the name of the local database MongoDB (e.g., refSciELO_001)')
+        print('Error: please, provide the name of the local documents database MongoDB (e.g., refSciELO_001)')
+        print('Error: please, provide the list of new pids (e.g., new-pids-from-2019-06-10)')
+        print('Error: please, provide the name of the metadata2pid dictionary (e.g., d1.dat)')
         sys.exit(1)
     
     mongo_client = MongoClient()
     doc_local_database = mongo_client[LOCAL_DOC_DATABASE_NAME]
+    metadata2pid = fm.load_dict(METADATA2PID)
+
+    col2newpids = fm.get_col2pids_from_csv(NEW_PIDS)
+    print('there are %d new pids' % sum([len(col2newpids.get(col)) for col in col2newpids.keys()]))
+
     docs = []
-    for col in doc_local_database.list_collection_names():
-        print('collecting attributes from collection %s' % col)
-        c = doc_local_database[col].find({})
+    for col in col2newpids.keys():
+        print('collecting all document\'s attrs from collection %s' % col)
+        new_pids = col2newpids[col]
+        c = doc_local_database[col].find({'_id': {'$in': new_pids}})
         tmp_docs = map(dm.get_doc_attrs, c)
         docs.extend(tmp_docs)
 
@@ -72,13 +81,13 @@ if __name__ == "__main__":
     keyset7 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
     keyset8 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME]
 
-    print('creating dictionaries')
+    print('updating dictionaries')
     for i, keyset in enumerate([keyset1, keyset2, keyset3, keyset4, keyset5, keyset6, keyset7, keyset8]):
-        path_dict_name = 'md2pid_t' + str(i + 1) + '_1' + '.dat'
+        new_version_number = str(int(METADATA2PID.split('_')[-1]) + 1)
+        path_dict_name_new_version = 'md2pid_t' + str(i + 1) + '_' + new_version_number + '.dat'
         if i + 1 == 3 or i + 1 == 4 or i + 1 == 7 or i + 1 == 8:
             use_first_char_author_name = True
         else:
             use_first_char_author_name = False
-        keyset_metadata2pid = create_dict(docs, keyset, use_first_char_author_name)
-        print('there are %s keys in metadata2pid with keyset' + str(i+1) % str(len(keyset_metadata2pid)))
-        fm.save_dict(keyset_metadata2pid, path_dict_name)
+        keyset_metadata2pid = update_dict(docs, metadata2pid, keyset, use_first_char_author_name)
+        fm.save_dict(keyset_metadata2pid, path_dict_name_new_version)
