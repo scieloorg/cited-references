@@ -57,7 +57,7 @@ if __name__ == "__main__":
     
     mongo_client = MongoClient()
     doc_local_database = mongo_client[LOCAL_DOC_DATABASE_NAME]
-    list_of_dicts = sorted([f for f in os.listdir() if f.endswith('.dat')])
+    list_of_dicts = sorted(['example/' + f for f in os.listdir('example') if f.endswith('.dat')])
 
     col2newpids = fm.get_col2pids_from_csv(NEW_PIDS)
     print('there are %d new pids' % sum([len(col2newpids.get(col)) for col in col2newpids.keys()]))
