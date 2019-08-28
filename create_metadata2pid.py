@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-import pickle
 import sys
 
+from pymongo import MongoClient
 from model.document_manager import DocumentManager as dm
 from model.file_manager import FileManager as fm
-from pymongo import MongoClient
 
 
 def create_dict(documents: list, column_indexes: list, use_first_char_author_name: False):
