@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import asyncio
 import math
+import sys
+import os
 import requests
 
 from asyncio import TimeoutError
@@ -10,13 +12,13 @@ from bs4 import BeautifulSoup
 
 ROOT_URL = 'http://mjl.clarivate.com'
 
-DEFAULT_DIR_HTML = '/home/rafael/Temp/scielo/wos/html/'
+DEFAULT_DIR_HTML = 'data/wos/html/'
 DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_MODE = 'collect'
 DEFAULT_SEMAPHORE_LIMIT = 5
 
 
-def get_url_indexes(ROOT_URL):
+def get_url_indexes():
     response = requests.get(ROOT_URL)
     soup = BeautifulSoup(response.text, 'lxml')
     links = soup.find_all('a')
@@ -24,20 +26,20 @@ def get_url_indexes(ROOT_URL):
 
 
 def save_into_html_file(path_html_file: str, response):
-    '''
+    """
     Receives a response (in text format).
     Saves the document into a html file.
-    '''
+    """
     html_file = open(path_html_file, 'w')
     html_file.writelines(response)
     html_file.close()
 
 
 async def fetch(paged_url, session):
-    '''
+    """
     Fetchs the url.
     Calls the method save_into_html_file with the response as a parameter (in text format).
-    '''
+    """
     async with session.get(paged_url) as response:
         try:
             for attempt in range(DEFAULT_MAX_ATTEMPTS):
@@ -48,32 +50,32 @@ async def fetch(paged_url, session):
                     break
                 elif response.status == 500 and attempt == DEFAULT_MAX_ATTEMPTS:
                     print('ResponseError', response.status, paged_url)
-        except (ServerDisconnectedError):
+        except ServerDisconnectedError:
             print('ServerDisconnectedError', paged_url)
-        except (TimeoutError):
+        except TimeoutError:
             print('TimeoutError', paged_url)
         except ContentTypeError:
             print('ContentTypeError', paged_url)
 
 
 async def bound_fetch(sem, paged_url, session):
-    '''
+    """
     Limits the collecting task to a semaphore.
-    '''
+    """
     async with sem:
         await fetch(paged_url, session)
 
 
 async def run():
-    '''
+    """
     Creates tasks to get the html file with respect to a list composed by htmls.
-    '''
+    """
     sem = asyncio.Semaphore(DEFAULT_SEMAPHORE_LIMIT)
     tasks = []
 
     async with ClientSession() as session:
 
-        urls = get_url_indexes(ROOT_URL)
+        urls = get_url_indexes()
 
         for u in urls:
             tmp_index = requests.get(u)
@@ -92,10 +94,18 @@ async def run():
 
 
 if __name__ == "__main__":
+    DEFAULT_MODE = sys.argv[1]
+
+    if len(sys.argv) != 2:
+        print('Error: enter execution mode')
+        sys.exit(1)
+
     if DEFAULT_MODE == 'collect':
+        os.makedirs(DEFAULT_DIR_HTML)
+
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run())
         loop.run_until_complete(future)
     elif DEFAULT_MODE == 'parse':
+        # TODO: create a parser to convert html wos data to a unique csv
         pass
-

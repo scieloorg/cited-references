@@ -6,11 +6,11 @@ from pymongo.errors import DuplicateKeyError
 
 
 def parse_pids_from_file(path_pids:str):
-    '''
+    """
     Receives the path of the csv file new-pids.
     The current format of each line is collection,pid,doi.
     Returns a dict where each key is a collection and each value is a list of pids.
-    '''
+    """
     file_pids = open(path_pids)
     col2newpids = {}
     for line in file_pids:

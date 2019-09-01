@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-import pickle
-import sys
 import os
+import sys
 
+from pymongo import MongoClient
 from model.document_manager import DocumentManager as dm
 from model.file_manager import FileManager as fm
-from pymongo import MongoClient
 
 
-def update_dict(documents: list, metadata2pid: dict, column_indexes: list, use_first_char_author_name: False):
-    '''
-    Receives a list of documents, a metadata2pid dictionary, column indexes (md2pid settings), and a boolean that indicates the use or not of the first char of the first given name.
+DEFAULT_DIR = 'data/'
+
+
+def update_dict(documents: list, metadata2pid: dict, column_indexes: list):
+    """
+    Receives a list of documents, a metadata2pid dictionary, column indexes (md2pid settings)
     Returns the updated version of the dictionary where each key is a comma separated string composed by the metadata attributes indicated in the m2pid settings.
-    '''
+    """
     for doc in documents:
         doc_attrs = []
         for i in column_indexes:
@@ -23,10 +25,7 @@ def update_dict(documents: list, metadata2pid: dict, column_indexes: list, use_f
                 else:
                     first_given_name = ''
                 if len(first_given_name) > 0:
-                    if use_first_char_author_name:
-                        column = first_given_name[0]
-                    else:
-                        column = first_given_name
+                    column = first_given_name[0]
                 else:
                     column = ''
             elif i == dm.FIRST_AUTHOR_SURNAME:
@@ -40,9 +39,9 @@ def update_dict(documents: list, metadata2pid: dict, column_indexes: list, use_f
             doc_attrs.append(column)
         metadata_key = ','.join(doc_attrs)
         if metadata_key not in metadata2pid:
-            metadata2pid[metadata_key] = {doc[dm.PID]}
+            metadata2pid[metadata_key] = {':'.join([doc[dm.PID], doc.get('collection')])}
         else:
-            metadata2pid[metadata_key].add(doc[dm.PID])
+            metadata2pid[metadata_key].add(':'.join([doc[dm.PID], doc.get('collection')]))
     return metadata2pid
 
 
@@ -57,7 +56,7 @@ if __name__ == "__main__":
     
     mongo_client = MongoClient()
     doc_local_database = mongo_client[LOCAL_DOC_DATABASE_NAME]
-    list_of_dicts = sorted(['example/' + f for f in os.listdir('example') if f.endswith('.dat')])
+    list_of_dicts = sorted([DEFAULT_DIR + f for f in os.listdir(DEFAULT_DIR) if f.endswith('.dat')])
 
     col2newpids = fm.get_col2pids_from_csv(NEW_PIDS)
     print('there are %d new pids' % sum([len(col2newpids.get(col)) for col in col2newpids.keys()]))
@@ -70,24 +69,16 @@ if __name__ == "__main__":
         tmp_docs = map(dm.get_doc_attrs, c)
         docs.extend(tmp_docs)
 
-    # list of md2pid keys settings
-    keyset1 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_ABBRV, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
-    keyset2 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_ABBRV, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME]
-    keyset3 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_ABBRV, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
-    keyset4 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_ABBRV, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME]
-    keyset5 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
-    keyset6 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME]
-    keyset7 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
-    keyset8 = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_ORDER, dm.ISSUE_VOLUME]
+    major_keyset = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_VOLUME, dm.FIRST_PAGE]
+    minor_keyset = [dm.FIRST_AUTHOR_GIVEN_NAMES, dm.FIRST_AUTHOR_SURNAME, dm.PUBLICATION_DATE, dm.JOURNAL_TITLE, dm.ISSUE_NUMBER, dm.ISSUE_VOLUME]
 
     print('updating dictionaries')
-    for i, keyset in enumerate([keyset1, keyset2, keyset3, keyset4, keyset5, keyset6, keyset7, keyset8]):
-        new_version_number = str(int(list_of_dicts[i].split('_')[-1].split('.')[0]) + 1)
-        path_dict_name_new_version = 'md2pid_t' + str(i + 1) + '_' + new_version_number + '.dat'
-        if i + 1 == 3 or i + 1 == 4 or i + 1 == 7 or i + 1 == 8:
-            use_first_char_author_name = True
-        else:
-            use_first_char_author_name = False
-        old_dict_version = fm.load_dict(list_of_dicts[i])
-        keyset_metadata2pid = update_dict(docs, old_dict_version, keyset, use_first_char_author_name)
-        fm.save_dict(keyset_metadata2pid, path_dict_name_new_version)
+    new_path_major_dict = DEFAULT_DIR + 'major_dict_new.dat'
+    old_major_dict_version = fm.load_dict(DEFAULT_DIR + 'major_dict.dat')
+    major_keyset_metadata2pid = update_dict(docs, old_major_dict_version, major_keyset)
+    fm.save_dict(major_keyset_metadata2pid, new_path_major_dict)
+
+    new_path_minor_dict = DEFAULT_DIR + 'minor_dict_new.dat'
+    old_minor_dict_version = fm.load_dict(DEFAULT_DIR + 'minor_dict.dat')
+    minor_keyset_metadata2pid = update_dict(docs, old_minor_dict_version, minor_keyset)
+    fm.save_dict(minor_keyset_metadata2pid, new_path_minor_dict)

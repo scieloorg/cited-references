@@ -8,10 +8,10 @@ from pymongo import MongoClient
 
 
 async def fetch(url, session, col, pid):
-    '''
+    """
     Fetchs the url for the collection and pid passed as parameters.
     Calls the method save_into_local_database with the response as a parameter (in json format).
-    '''
+    """
     async with session.get(url) as response:
         try:
             response = await response.json()
@@ -21,18 +21,20 @@ async def fetch(url, session, col, pid):
 
 
 async def bound_fetch(sem, url, session, col, pid):
-    '''
+    """
     Limits the collecting task to a semaphore.
-    '''
+    """
     async with sem:
         await fetch(url, session, col, pid)
 
 
 async def run(col2pids={}):
-    '''
+    """
     Receives a dictionary of collection (key): pid (values).
     Creates tasks to collect pids.
-    '''
+    """
+    if col2pids is None:
+        col2pids = {}
     url = 'http://articlemeta.scielo.org/api/v1/article/?collection={}&code={}&format=json'
     sem = asyncio.Semaphore(SEMAPHORE_LIMIT)
     tasks = []
@@ -48,10 +50,10 @@ async def run(col2pids={}):
 
 
 def parse_new_pids_list(new_pids_list):
-    '''
+    """
     Receives a list of new PIDs containing collection,pid,doi,processing_date.
     Returns a dictionary collection (key): list of pids (value).
-    '''
+    """
     pids = [p.split(',') for p in open(new_pids_list)]
     col2pids = {}
     for p in pids:
@@ -66,10 +68,10 @@ def parse_new_pids_list(new_pids_list):
 
 
 def save_into_local_database(json_document, col, pid):
-    '''
+    """
     Receives a document (in json format), its collection and pid.
     Saves the document into the local database.
-    '''
+    """
     if json_document:
         json_document['_id'] = pid
         if not local_database[col].find_one({'_id': pid}):

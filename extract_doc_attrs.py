@@ -7,10 +7,10 @@ from pymongo import MongoClient
 
 
 def get_and_save_doc_attrs(doc_db, path_csv, processing_date:datetime):
-    '''
+    """
     Receive a document's database, the path of a csv file to be writed and a datetime object.
     Writes the documents attributes in the csv file, according to the processing date
-    '''
+    """
     file_doc_attrs = open(path_csv, 'w')
     for col in doc_db.list_collection_names():
         print('collecting document attributes from %s' % col)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import os
+import sys
 
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
@@ -12,8 +13,8 @@ from bs4 import BeautifulSoup
 
 PROFILE_URL = 'https://www.latindex.org/latindex/ficha?folio={profile_id}'
 
-DEFAULT_DIR_CSV = '/home/rafael/Temp/scielo/latindex/'
-DEFAULT_DIR_HTML = '/home/rafael/Temp/scielo/latindex/html/'
+DEFAULT_DIR_CSV = 'data/latindex/'
+DEFAULT_DIR_HTML = 'data/latindex/html/'
 DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_MAX_PROFILE_ID = 29000
 DEFAULT_MODE = 'collect'
@@ -22,11 +23,11 @@ DEFAULT_SEMAPHORE_LIMIT = 10
 
 
 def html2dict(path_html_file: str):
-    '''
+    """
     Open, reads and converts a html file (the main parts) to a comma-separated string (commastr).
-    :param html: path of the html file
-    :return: a dict where each key is the filename and the value is its comma-separated string representation
-    '''
+    :param path_html_file: path of the html file.
+    :return: a dict where each key is the filename and the value is its comma-separated string representation.
+    """
     profile_id = path_html_file.split('.')[0]
     html = open(DEFAULT_DIR_HTML + path_html_file).read()
 
@@ -34,7 +35,8 @@ def html2dict(path_html_file: str):
 
     # there are, currently, more than one html starting tag in a same html file
     # here we are trying to get the main html part
-    splitted_html = html.split('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">')
+    splitted_html = html.split('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" '
+                               '"http://www.w3.org/TR/html4/loose.dtd">')
     if len(splitted_html) > 1:
         main_html = splitted_html[1]
         soupped_html = BeautifulSoup(main_html, 'html.parser')
@@ -54,10 +56,10 @@ def html2dict(path_html_file: str):
 
 
 def save_csv_file(id2data: list):
-    '''
+    """
     Save a dictionary into a csv file
     :param id2data: a list of dictionaries where each key is a profile_id and each value is the pairs of attribute's name and value
-    '''
+    """
     result_file = open(DEFAULT_DIR_CSV + 'latindex.csv', 'w')
 
     possible_attrs = set()
@@ -82,23 +84,23 @@ def save_csv_file(id2data: list):
 
 
 def save_html_file(path_html_file: str, response):
-    '''
+    """
     Saves a response into a html file.
     :param path_html_file: path of the html file to be created
     :param response: response in text format
-    '''
+    """
     html_file = open(path_html_file, 'w')
     html_file.writelines(response)
     html_file.close()
 
 
 async def fetch(url, profile_id, session):
-    '''
+    """
     Fetchs the url. Calls the method save_into_html_file with the response as a parameter (in text format).
     :param url: the url to be fetched
     :param profile_id: the id to be inserted into the url
     :param session: a ClientSession object
-    '''
+    """
     async with session.get(url.format_map({'profile_id': profile_id})) as response:
         try:
             for attempt in range(DEFAULT_MAX_ATTEMPTS):
@@ -108,30 +110,30 @@ async def fetch(url, profile_id, session):
                     break
                 elif response.status == 500 and (attempt + 1) == DEFAULT_MAX_ATTEMPTS:
                     print('ResponseError', response.status, profile_id)
-        except (ServerDisconnectedError):
+        except ServerDisconnectedError:
             print('ServerDisconnectedError', url)
-        except (TimeoutError):
+        except TimeoutError:
             print('TimeoutError', url)
         except ContentTypeError:
             print('ContentTypeError', url)
 
 
 async def bound_fetch(sem, url, profile_id, session):
-    '''
+    """
     Limits the collecting task to a semaphore.
     :param sem: a controller of the maximum number of parallel connections
     :param url: the url to be fetched
     :param profile_id: the id to be inserted into the url
     :param session: a ClientSession object
-    '''
+    """
     async with sem:
         await fetch(url, profile_id, session)
 
 
 async def run():
-    '''
+    """
     Creates tasks to get the csv file with respect to a list composed by profile ids (or a range).
-    '''
+    """
     url = PROFILE_URL
     sem = asyncio.Semaphore(DEFAULT_SEMAPHORE_LIMIT)
     tasks = []
@@ -145,9 +147,16 @@ async def run():
 
 
 if __name__ == "__main__":
-    DEFAULT_MODE = 'parse'
+    DEFAULT_MODE = sys.argv[1]
+
+    if len(sys.argv) != 2:
+        print('Error: enter execution mode [collect, parse]')
+        sys.exit(1)
 
     if DEFAULT_MODE == 'collect':
+        os.makedirs(DEFAULT_DIR_CSV)
+        os.makedirs(DEFAULT_DIR_HTML)
+
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run())
         loop.run_until_complete(future)

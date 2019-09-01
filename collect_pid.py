@@ -6,12 +6,12 @@ from datetime import date
 
 
 def save_results_to_csv(objects: {}, path_csv):
-    '''
+    """
     Receives a dict of PID objects and a path for a CSV file.
     Saves these objects in the CSV file.
     The CSV contains code, collection, doi and processing_date.
     If the path already contains a file, appends data to it.
-    '''
+    """
     file_results = open(path_csv, 'a')
     for obj in objects:
         code = obj.get('code')

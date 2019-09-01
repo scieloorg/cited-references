@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 import asyncio
-import json
-import requests
 import sys
+from asyncio import TimeoutError
 
 from aiohttp import ClientSession
-from asyncio import TimeoutError
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from pymongo import MongoClient
 
 
 def save_into_local_database(local_database, collection, response, ref_id):
-    '''
+    """
     Receives a response (in json format) and its ref_id.
     Saves the document into the local database.
     Set status equal to 1 if the DOI exists in the Crossref.
     Set status equal to -1 if the DOI does not exist in the Crossref.
-    '''
+    """
     query = { '_id': ref_id }
     new_data = { '$set': {
         'status': 1, 
@@ -27,10 +25,10 @@ def save_into_local_database(local_database, collection, response, ref_id):
 
 
 async def fetch(local_database, collection, url, session, ref_id):
-    '''
+    """
     Fetchs the url containing the doi code.
     Calls the method save_into_local_database with the response as a parameter (in json format).
-    '''
+    """
     async with session.get(url) as response:
         try:
             response = await response.json()
@@ -55,18 +53,18 @@ async def fetch(local_database, collection, url, session, ref_id):
         
 
 async def bound_fetch(local_database, collection, sem, url, session, ref_id):
-    '''
+    """
     Limits the collecting task to a semaphore.
-    '''
+    """
     async with sem:
         await fetch(local_database, collection, url, session, ref_id)
 
 
-async def run(local_database, collection, references_with_doi, email:str):
-    '''
+async def run(local_database, collection, references_with_doi, email: str):
+    """
     Receives a cursor of references with doi and an e-mail for mounting the crossref request.
     Creates tasks to collect metadata and save them into the local database.
-    '''
+    """
     url = 'https://api.crossref.org/works/{}'
     sem = asyncio.Semaphore(SEMAPHORE_LIMIT)
     tasks = []
@@ -82,15 +80,28 @@ async def run(local_database, collection, references_with_doi, email:str):
 
 
 def get_references_with_doi(ref_db_collection):
-    '''
-    Receives a references database's collection.
-    Receives a mode (no-status or -1).
-    Return a pymongo cursor to iterate over references with a doi code.
-    '''
+    """
+    Returns the references that have doi code.
+    Filter the results according to the STATUS_MODE.
+    :param ref_db_collection: references database collection.
+    :return: pymongo cursor to iterate over references with a doi code.
+    """
     if STATUS_MODE == 'no-status':
         return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'status': {'$exists': False}}]})
     elif STATUS_MODE == '-1':
-        return ref_db_collection.find({'$and': [{'v237': {'$exists': True}}, {'$or': [{'status': {'$exists': False}}, {'status': -1}]}]})
+        return ref_db_collection.find({
+            '$and': [
+                {'v237': {'$exists': True}},
+                {'$or': [
+                    {'status': {'$exists': False}},
+                    {'status': -1}]}]})
+    elif STATUS_MODE == '-2':
+        return ref_db_collection.find({
+            '$and': [
+                {'v237': {'$exists': True}},
+                {'$or': [
+                    {'status': {'$exists': False}},
+                    {'status': -2}]}]})
 
 
 if __name__ == "__main__":
@@ -104,7 +115,7 @@ if __name__ == "__main__":
     EMAIL = sys.argv[2]
     STATUS_MODE = sys.argv[3]
 
-    SEMAPHORE_LIMIT = 15
+    SEMAPHORE_LIMIT = 10
 
     local_mongo_client = MongoClient()
     local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
