@@ -182,12 +182,12 @@ These are the scripts responsible for collecting data from several indexes datab
 **How to use**
 
     $ ./scrapper/latindex.py collect # to collect data
-    $ ./scrapper/latindex.py collect # to parse data to a csv file
+    $ ./scrapper/latindex.py parse PATH_TO_BE_PARSED # to parse data to a csv file
 
 ### WebOfScience
 
 **How to use**
 
     $ ./scrapper/wos.py collect # to collect data
-    $ ./scrapper/wos.py collect # to parse data to a csv file
+    $ ./scrapper/wos.py parse PATH_TO_BE_PARSED # to parse data to a csv file
     
