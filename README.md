@@ -4,8 +4,8 @@
 
     $ git clone git@github.com:scieloorg/cited-references.git
     $ cd cited-references
-    $ python -m venv venv
-    $ source venv/bin/activate
+    $ virtualenv -p python3 .venv
+    $ source .venv/bin/activate
     $ pip3 install -r requirements.txt
 
 
