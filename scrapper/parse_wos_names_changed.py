@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 
+
 DEFAULT_HTML_NAMES_CHANGED = '/home/rafael/Temp/scielo/wos-jcr-names-changed.html'
 DEFAULT_TSV_NAMES_CHANGED = 'wos-jcr-names-changed.csv'
 

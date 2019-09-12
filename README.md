@@ -6,7 +6,7 @@
     $ cd cited-references
     $ virtualenv -p python3 .venv
     $ source .venv/bin/activate
-    $ pip3 install -r requirements.txt
+    $ pip install -r requirements.txt
 
 
 ## Collect PID
