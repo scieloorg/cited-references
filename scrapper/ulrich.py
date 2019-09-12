@@ -108,9 +108,12 @@ async def fetch(url, session):
                         logging.info('COLLECTED: %s' % profile_id)
                         break
                     elif response.status == 500 and attempt == DEFAULT_MAX_ATTEMPTS:
-                        print('RESPONSE_ERROR_500: %s [waiting 10 seconds to try again...]' % url)
-                        logging.error('RESPONSE_ERROR: %s' % profile_id)
+                        print('RESPONSE_ERROR_500: %s [waiting 10 seconds to try again...]' % profile_id)
+                        logging.error('RESPONSE_ERROR_500: %s' % profile_id)
                         time.sleep(10)
+                    elif response.status == 404:
+                        print('RESPONSE_ERROR_404: %s' % profile_id)
+                        logging.error('RESPONSE_ERROR_404: %s' % profile_id)
                 except ServerDisconnectedError:
                     print('SERVER_DISCONNECT_ERROR %s' % profile_id)
                     logging.error('SERVER_DISCONNECTED_ERROR: %s' % profile_id)
