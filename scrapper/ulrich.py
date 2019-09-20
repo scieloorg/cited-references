@@ -5,11 +5,10 @@ import itertools
 import logging
 import sys
 import os
-import time
 import zipfile
 
 from asyncio import TimeoutError
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientConnectionError
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from bs4 import BeautifulSoup
 
@@ -100,6 +99,7 @@ async def fetch(url, session):
     try:
         async with session.get(url) as response:
             profile_id = url.split('/')[-1]
+            print('COLLECTING %s' % profile_id)
             for attempt in range(DEFAULT_MAX_ATTEMPTS):
                 try:
                     if response.status == 200:
@@ -108,27 +108,23 @@ async def fetch(url, session):
                         logging.info('COLLECTED: %s' % profile_id)
                         break
                     elif response.status == 500 and attempt == DEFAULT_MAX_ATTEMPTS:
-                        print('RESPONSE_ERROR_500: %s [waiting 10 seconds to try again...]' % profile_id)
-                        logging.error('RESPONSE_ERROR_500: %s' % profile_id)
-                        time.sleep(10)
+                        logging.info('RESPONSE_ERROR_500: %s' % profile_id)
                     elif response.status == 404:
-                        print('RESPONSE_ERROR_404: %s' % profile_id)
-                        logging.error('RESPONSE_ERROR_404: %s' % profile_id)
+                        logging.info('RESPONSE_ERROR_404: %s' % profile_id)
                 except ServerDisconnectedError:
-                    print('SERVER_DISCONNECT_ERROR %s' % profile_id)
-                    logging.error('SERVER_DISCONNECTED_ERROR: %s' % profile_id)
+                    logging.info('SERVER_DISCONNECTED_ERROR: %s' % profile_id)
                 except TimeoutError:
-                    print('TIMEOUT_ERROR: %s' % profile_id)
-                    logging.error('TIMEOUT_ERROR: %s' % profile_id)
+                    logging.info('TIMEOUT_ERROR: %s' % profile_id)
                 except ContentTypeError:
-                    print('CONTENT_TYPE_ERROR: %s' % profile_id)
-                    logging.error('CONTENT_TYPE_ERROR: %s' % profile_id)
+                    logging.info('CONTENT_TYPE_ERROR: %s' % profile_id)
     except TimeoutError:
-        logging.critical('GENERALIZED_TIMEOUT_ERROR')
+        logging.info('GENERALIZED_TIMEOUT_ERROR')
+    except ClientConnectionError:
+        logging.info('GENERALIZED_CLIENT_CONNECTION_ERROR')
     except ServerDisconnectedError:
-        logging.critical('GENERALIZED_SERVER_DISCONNECTED_ERROR')
+        logging.info('GENERALIZED_SERVER_DISCONNECTED_ERROR')
     except ContentTypeError:
-        logging.critical('GENERALIZED_CONTENT_TYPE_ERROR')
+        logging.info('GENERALIZED_CONTENT_TYPE_ERROR')
 
 
 async def bound_fetch(sem, url, session):
