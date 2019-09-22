@@ -4,9 +4,9 @@
 
     $ git clone git@github.com:scieloorg/cited-references.git
     $ cd cited-references
-    $ python -m venv venv
-    $ source venv/bin/activate
-    $ pip3 install -r requirements.txt
+    $ python3 -m venv .venv
+    $ source .venv/bin/activate
+    $ pip install -r requirements.txt
 
 
 ## Collect PID
