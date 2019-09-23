@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
 import asyncio
 import bs4
-import math
+import itertools
+import logging
 import sys
 import os
-import requests
+import zipfile
 
 from asyncio import TimeoutError
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientConnectionError
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from bs4 import BeautifulSoup
 
+ROOT_URL = 'https://ulrichsweb.serialssolutions.com/titleDetails/{}'
 
-ROOT_URL = 'http://mjl.clarivate.com'
+DEFAULT_START_ID = 12515
+DEFAULT_END_ID = 835018
+DEFAULT_RANGE_1 = range(DEFAULT_START_ID, DEFAULT_END_ID)
+DEFAULT_RANGE_2 = range(15793473, 15798807)
+DEFAULT_RANGE_IDS = itertools.chain(DEFAULT_RANGE_1, DEFAULT_RANGE_2)
 
-DEFAULT_DIR_HTML = 'data/wos/html/'
+DEFAULT_DIR_HTML = 'data/ulrich/html/'
 
 DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_MODE = 'collect'
-DEFAULT_SEMAPHORE_LIMIT = 5
+DEFAULT_SEMAPHORE_LIMIT = 2
 
 
+# TODO: change the following method to attend ulrich web pages
 def parse_html(path_html_file: str):
     """
     Open, reads and converts a html file (the main parts) to a tab-separated string.
@@ -64,16 +71,9 @@ def save_tsv_file(journals_tsv: list):
     Save a list of tsvs into a tsv file
     :param journals_tsv a list of tsvs where each tsv is a tab-separeted string representation of a journal
     """
-    result_file = open('wos.tsv', 'w')
+    result_file = open('ulrich.tsv', 'w')
     result_file.writelines(journals_tsv)
     result_file.close()
-
-
-def get_url_indexes():
-    response = requests.get(ROOT_URL)
-    soup = BeautifulSoup(response.text, 'lxml')
-    links = soup.find_all('a')
-    return [ROOT_URL + l.get('href').replace('options', 'results') + '&mode=print' for l in links if '/cgi-bin/jrnlst/' in l.get('href')]
 
 
 def save_into_html_file(path_html_file: str, response):
@@ -85,36 +85,54 @@ def save_into_html_file(path_html_file: str, response):
     html_file.writelines(response)
     html_file.close()
 
+    with zipfile.ZipFile(path_html_file.replace('.html', '.zip'), 'w') as zf:
+        zf.write(path_html_file, compress_type=zipfile.ZIP_DEFLATED)
+        zf.close()
+    os.remove(path_html_file)
 
-async def fetch(paged_url, session):
+
+async def fetch(url, session):
     """
     Fetchs the url.
     Calls the method save_into_html_file with the response as a parameter (in text format).
     """
-    async with session.get(paged_url) as response:
-        try:
+    try:
+        async with session.get(url) as response:
+            profile_id = url.split('/')[-1]
+            print('COLLECTING %s' % profile_id)
             for attempt in range(DEFAULT_MAX_ATTEMPTS):
-                if response.status == 200:
-                    response = await response.text(errors='ignore')
-                    path_html_file = paged_url.split('&')[0].split('?')[-1].lower().replace('=', '_') + '_' + paged_url.split('&')[-1].replace('=', '_').lower()
-                    save_into_html_file(DEFAULT_DIR_HTML + path_html_file + '.html', response)
-                    break
-                elif response.status == 500 and attempt == DEFAULT_MAX_ATTEMPTS:
-                    print('ResponseError', response.status, paged_url)
-        except ServerDisconnectedError:
-            print('ServerDisconnectedError', paged_url)
-        except TimeoutError:
-            print('TimeoutError', paged_url)
-        except ContentTypeError:
-            print('ContentTypeError', paged_url)
+                try:
+                    if response.status == 200:
+                        response = await response.text(errors='ignore')
+                        save_into_html_file(DEFAULT_DIR_HTML + profile_id + '.html', response)
+                        logging.info('COLLECTED: %s' % profile_id)
+                        break
+                    elif response.status == 500 and attempt == DEFAULT_MAX_ATTEMPTS:
+                        logging.info('RESPONSE_ERROR_500: %s' % profile_id)
+                    elif response.status == 404:
+                        logging.info('RESPONSE_ERROR_404: %s' % profile_id)
+                except ServerDisconnectedError:
+                    logging.info('SERVER_DISCONNECTED_ERROR: %s' % profile_id)
+                except TimeoutError:
+                    logging.info('TIMEOUT_ERROR: %s' % profile_id)
+                except ContentTypeError:
+                    logging.info('CONTENT_TYPE_ERROR: %s' % profile_id)
+    except TimeoutError:
+        logging.info('GENERALIZED_TIMEOUT_ERROR')
+    except ClientConnectionError:
+        logging.info('GENERALIZED_CLIENT_CONNECTION_ERROR')
+    except ServerDisconnectedError:
+        logging.info('GENERALIZED_SERVER_DISCONNECTED_ERROR')
+    except ContentTypeError:
+        logging.info('GENERALIZED_CONTENT_TYPE_ERROR')
 
 
-async def bound_fetch(sem, paged_url, session):
+async def bound_fetch(sem, url, session):
     """
     Limits the collecting task to a semaphore.
     """
     async with sem:
-        await fetch(paged_url, session)
+        await fetch(url, session)
 
 
 async def run():
@@ -125,43 +143,33 @@ async def run():
     tasks = []
 
     async with ClientSession() as session:
-
-        urls = get_url_indexes()
-
-        for u in urls:
-            tmp_index = requests.get(u)
-            soup = BeautifulSoup(tmp_index.text, 'html.parser')
-            allp = soup.find_all('p')[0].contents
-            for a in allp:
-                if 'Total journal' in a:
-                    num_pages = math.ceil(int(a.strip().split(': ')[-1]) / 500)
-
-            for page in range(1, num_pages + 1):
-                paged_url = u + '&Page=' + str(page)
-                task = asyncio.ensure_future(bound_fetch(sem, paged_url, session))
-                tasks.append(task)
+        for u in [ROOT_URL.format(jid) for jid in DEFAULT_RANGE_IDS]:
+            task = asyncio.ensure_future(bound_fetch(sem, u, session))
+            tasks.append(task)
         responses = asyncio.gather(*tasks)
         await responses
 
 
 if __name__ == "__main__":
-    DEFAULT_MODE = sys.argv[1]
-    PATH_TO_BE_PARSED = sys.argv[2]
+    logging.basicConfig(filename='ulrich.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    if len(sys.argv) != 3:
-        print('Error: enter execution mode')
-        print('Error: enter path to be parsed')
-        sys.exit(1)
+    MODE = sys.argv[1]
+    DIR_HTML = sys.argv[2]
 
-    if DEFAULT_MODE == 'collect':
-        os.makedirs(DEFAULT_DIR_HTML)
+    if MODE == 'collect':
+        DEFAULT_DIR_HTML = DIR_HTML
+        os.makedirs(DEFAULT_DIR_HTML, exist_ok=True)
+
+        if len(sys.argv) == 4:
+            start_id = int(sys.argv[3])
+            DEFAULT_RANGE_IDS = itertools.chain(range(start_id, DEFAULT_END_ID), DEFAULT_RANGE_2)
 
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run())
         loop.run_until_complete(future)
-    elif DEFAULT_MODE == 'parse':
-        DEFAULT_DIR_HTML = PATH_TO_BE_PARSED
-        htmls = sorted([h for h in os.listdir(PATH_TO_BE_PARSED)])
+    elif MODE == 'parse':
+        DEFAULT_DIR_HTML = DIR_HTML
+        htmls = sorted([h for h in os.listdir(DIR_HTML)])
 
         journals_tsv = []
         for i, h in enumerate(htmls):

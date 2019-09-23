@@ -3,4 +3,5 @@
 *.dat
 data/*
 .venv/*
+.idea/*
 Pipfile
