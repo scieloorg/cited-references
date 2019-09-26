@@ -1,7 +1,8 @@
 # Scripts
 
 **Clone scripts and install dependencies**
-
+    
+    $ apt get install python3-venv
     $ git clone git@github.com:scieloorg/cited-references.git
     $ cd cited-references
     $ python3 -m venv .venv
@@ -190,4 +191,29 @@ These are the scripts responsible for collecting data from several indexes datab
 
     $ ./scrapper/wos.py collect # to collect data
     $ ./scrapper/wos.py parse # to parse data to a csv file
+    
+**How to use**
+
+    $ ./scrapper/ulrich.py collect # to collect data in html format
+    $ ./scrapper/ulrich.py parse # to parse data to a csv file
+
+
+## Cleaner-Filter-Portal
+
+Cleans and filter the CSV file provided by issn-scrapper. Removes invalid rows and ignores unnecessary columns. 
+
+**How to use**
+
+    $ ./cleaner/portal.py data.csv # to remove invalid rows and useless columns from the file data.csv
+    
+which will returns a file named data_filtered.csv
+   
+    
+## Merge indexes base
+
+Merge all CSV files (from the indexes) into one CSV file where each line has one key (ISSN-L) and several columns (ISSN, TITLE, ABBREVIATED-TITLE, EXTRA-TITLE)
+
+**How to use**
+
+    $ ./merge_indexes.py indexes/ # to merge all CSVs inside indexes folder
     
