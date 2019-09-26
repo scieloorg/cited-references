@@ -7,10 +7,10 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.select import Select
 
 start_pos = sys.argv[1]
-last_pos = 7892
+last_pos = 7900
 
 res_file_path = '/home/rafael/ids_ulrich_' + start_pos + '.txt'
-chromeDriver_path = '/home/rafael/chromedriver'
+chromeDriver_path = '/home/rafael/Downloads/chromedriver'
 
 res_file = open(res_file_path, "w+")
 res_file.close()

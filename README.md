@@ -191,6 +191,8 @@ These are the scripts responsible for collecting data from several indexes datab
 
     $ ./scrapper/wos.py collect # to collect data
     $ ./scrapper/wos.py parse # to parse data to a csv file
+
+### Ulrich
     
 **How to use**
 
@@ -215,5 +217,5 @@ Merge all CSV files (from the indexes) into one CSV file where each line has one
 
 **How to use**
 
-    $ ./merge_indexes.py indexes/ # to merge all CSVs inside indexes folder
+    $ ./merge_indexes.py indexes/ # to merge all CSVs inside folder indexes
     

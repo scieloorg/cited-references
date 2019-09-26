@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
+from multiprocessing.pool import Pool
+
 import bs4
 import itertools
 import logging
@@ -24,55 +26,105 @@ DEFAULT_DIR_HTML = 'data/ulrich/html/'
 
 DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_MODE = 'collect'
+DEFAULT_NUM_THREADS = 4
 DEFAULT_SEMAPHORE_LIMIT = 2
 
 
-# TODO: change the following method to attend ulrich web pages
-def parse_html(path_html_file: str):
+def _find_all_tr_pairs(key: str, title_details, profile_id):
+    try:
+        return title_details.find('div', {'id': key}).find('table', {'class': 'resultsTable'}).find_all('tr')
+    except AttributeError:
+        logging.warning('ID %s (KEY) %s doest not have resultsTable' % (profile_id, key))
+
+
+def _split_journal_attrs(attrs):
+    if attrs:
+        return [t.text.replace(':', '').strip().split('\n') for t in
+                [k for k in attrs if isinstance(k, bs4.element.Tag)]]
+    return []
+
+
+def _get_pair_key_values(splitted_attrs, prefix: str):
+    tmp_dict = {}
+    for j in splitted_attrs:
+        tmp_dict[prefix + j[0].replace('\t', ' ')] = '#'.join(
+            [k.strip().replace('\t', ' ').replace('#', ' ') for k in j[1:] if k.strip() != ''])
+    return tmp_dict
+
+
+def html2dict(path_zip_file: str):
     """
-    Open, reads and converts a html file (the main parts) to a tab-separated string.
-    :param path_html_file: path of the html file.
-    :return: a list of tab-separated string representations of the journals described in the html file.
+    Open, reads and converts a zipped html into a dict.
+    :param path_zip_file: path of the zip file
+    :return: a dict where each key is the profile id and the value is its key-value pairs (attrs)
     """
-    page_id = path_html_file.split('.')[0]
-    html = open(DEFAULT_DIR_HTML + path_html_file).read()
-    soupped_html = BeautifulSoup(html, 'html.parser')
+    profile_id = path_zip_file.split('/')[-1].split('.')[0]
+    inner_html_path = 'data/ulrich/html/' + profile_id + '.html'
+    html_content = zipfile.ZipFile(path_zip_file).open(inner_html_path).read()
 
-    # page's name
-    page_name = soupped_html.find('p').text.strip().split('\n')[0]
+    pairs = {profile_id: {}}
 
-    # journal's name
-    journals_names = [dt.text.strip().split('.')[-1].strip().replace('\t', '') for dt in soupped_html.find_all('dt')]
+    soupped_html = BeautifulSoup(html_content, 'html.parser')
 
-    # periodicity, issn and e-issn
-    journals_time_and_issns = []
-    for dt in soupped_html.find_all('dt'):
-        new_jii = ''
-        for jii in dt.next_siblings:
-            if isinstance(jii, bs4.element.Tag):
-                if jii.name == 'dd':
-                    break
-            else:
-                new_jii = new_jii + '\t' + jii.strip()
-        journals_time_and_issns.append(new_jii)
+    title_details = soupped_html.find('div', {'id': 'resultPane'})
 
-    # other journal's attributes
-    journals_other_attrs = [dd.text.strip().replace('\n', '\t') for dd in soupped_html.find_all('dd')]
+    basic_description_attrs = _find_all_tr_pairs('basicDescriptionContainer', title_details, profile_id)
+    subject_classification_attrs = _find_all_tr_pairs('subjectClassificationsContainer', title_details, profile_id)
+    additional_details_attrs = _find_all_tr_pairs('additionalDetailsContainer', title_details, profile_id)
+    title_history_attrs = _find_all_tr_pairs('titleHistoryContainer', title_details, profile_id)
+    publisher_attrs = _find_all_tr_pairs('publisherDetailsContainer', title_details, profile_id)
+    other_attrs = _find_all_tr_pairs('otherAvailabilityContainer', title_details, profile_id)
 
-    tsv_list = []
-    for i, j in enumerate(journals_names):
-        tsv_j = '\t'.join([page_id, page_name, j.replace('\t', ''), journals_time_and_issns[i], journals_other_attrs[i], '\n'])
-        tsv_list.append(tsv_j)
-    return tsv_list
+    bd_splitted = _split_journal_attrs(basic_description_attrs)
+    dict_bd = _get_pair_key_values(bd_splitted, 'bd_')
+
+    sc_splitted = _split_journal_attrs(subject_classification_attrs)
+    dict_sc = _get_pair_key_values(sc_splitted, 'sc_')
+
+    ad_splitted = _split_journal_attrs(additional_details_attrs)
+    dict_ad = _get_pair_key_values(ad_splitted, 'ad_')
+
+    th_splitted = _split_journal_attrs(title_history_attrs)
+    dict_th = _get_pair_key_values(th_splitted, 'th_')
+
+    pb_splitted = _split_journal_attrs(publisher_attrs)
+    dict_pb = _get_pair_key_values(pb_splitted, 'pb_')
+
+    ot_splitted = _split_journal_attrs(other_attrs)
+    dict_ot = _get_pair_key_values(ot_splitted, 'ot_')
+
+    for d in [dict_pb, dict_sc, dict_th, dict_ad, dict_bd, dict_ot]:
+        for k, v in d.items():
+            if k not in pairs:
+                pairs[profile_id][k] = v
+    return pairs
 
 
-def save_tsv_file(journals_tsv: list):
+def save_tsv_file(id2data: list):
     """
-    Save a list of tsvs into a tsv file
-    :param journals_tsv a list of tsvs where each tsv is a tab-separeted string representation of a journal
+    Save a dictionary into a tsv file
+    :param id2data: a list of dictionaries where each key is a profile_id and each value is the pairs of attribute's name and value
     """
-    result_file = open('ulrich.tsv', 'w')
-    result_file.writelines(journals_tsv)
+    result_file = open('/home/rafael/ulrich.tsv', 'w')
+
+    possible_attrs = set()
+    for d in id2data:
+        for v in d.values():
+            for attr in v.keys():
+                possible_attrs.add(attr)
+
+    possible_attrs = sorted(possible_attrs)
+    result_file.write('\t'.join(['Profile Identifier'] + possible_attrs) + '\n')
+
+    for d in id2data:
+        keys = list(d.keys())
+        if len(keys) > 0:
+            profile_id = list(d.keys())[0]
+            profile_csv_data = []
+            for a in possible_attrs:
+                profile_csv_data.append(d[profile_id].get(a, ''))
+            result_file.write('\t'.join([profile_id] + profile_csv_data) + '\n')
+
     result_file.close()
 
 
@@ -93,7 +145,7 @@ def save_into_html_file(path_html_file: str, response):
 
 async def fetch(url, session):
     """
-    Fetchs the url.
+    Fetches the url.
     Calls the method save_into_html_file with the response as a parameter (in text format).
     """
     try:
@@ -169,12 +221,8 @@ if __name__ == "__main__":
         loop.run_until_complete(future)
     elif MODE == 'parse':
         DEFAULT_DIR_HTML = DIR_HTML
-        htmls = sorted([h for h in os.listdir(DIR_HTML)])
+        htmls = sorted([DEFAULT_DIR_HTML + h for h in os.listdir(DIR_HTML)])
+        with Pool(DEFAULT_NUM_THREADS) as p:
+            id2data = p.map(html2dict, htmls)
 
-        journals_tsv = []
-        for i, h in enumerate(htmls):
-            print('parsing %d of %d' % (i + 1, len(htmls)))
-            journals_tsv.extend(parse_html(h))
-
-        print('saving file on disk')
-        save_tsv_file(journals_tsv)
+        save_tsv_file(id2data)
