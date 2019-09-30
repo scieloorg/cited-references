@@ -171,7 +171,10 @@ def read_base(base_name: str, mode='create_base'):
         if index_issn_l is not None and i[index_issn_l] != '':
             issn_l = i[index_issn_l].replace('-', '')
         elif len(issns) > 0:
-            issn_l = i2l.get(issns[0], '')
+            for x in sorted(issns):
+                issn_l = i2l.get(x, '')
+                if issn_l != '':
+                    break
             if issn_l == '':
                 issn_l = issns[0].replace('-', '')
 
@@ -230,13 +233,27 @@ def save_bases(merged_bases):
     Saves the merged bases into the disk
     :param merged_bases: a dictionary representing a merged base
     """
-    final_base = open(DEFAULT_DIR_INDEXES + '../base_de_correcao.csv', 'w')
+    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all.csv', 'w')
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
         j = v[0]
         t = v[1]
         final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)]) + '\n')
     final_base.close()
+
+    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl.csv', 'w')
+    title2issnl = {}
+    for k in sorted(merged_bases.keys()):
+        v = merged_bases.get(k)
+        t = v[1]
+        for ti in t:
+            if ti not in title2issnl:
+                title2issnl[ti] = [k]
+            else:
+                title2issnl[ti].append(k)
+    for title in sorted(title2issnl):
+        final_title2issnl.write('%s\t%s' % (title, '#'.join(title2issnl.get(title))) + '\n')
+    final_title2issnl.close()
 
 
 if __name__ == '__main__':
