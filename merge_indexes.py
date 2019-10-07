@@ -80,6 +80,27 @@ def is_valid_title(title: str):
     return False
 
 
+def get_issnl_from_dict(issns: list, issn2issnl: dict):
+    ls = list(set([issn2issnl.get(i, '') for i in issns if issn2issnl.get(i, '') != '']))
+    if len(ls) == 1:
+        return ls[0]
+    elif len(ls) == 0:
+        logging.warning('%s is not in the list' % issns)
+        return None
+    else:
+        logging.warning('%s links to multiple issn-l' % issns)
+        return None
+
+
+def get_issnl_from_base(issns: list, col_index: int, issn2issnl: dict):
+    i = issns[col_index]
+    if i in issn2issnl:
+        return i
+    else:
+        logging.warning('%s is not in dict' % i)
+        return None
+
+
 def has_valid_issn(issns: list):
     """
     Checks if a list of issns have at least one valid issn
@@ -87,7 +108,7 @@ def has_valid_issn(issns: list):
     :return: True if the list contains at least one valid issn, False otherwise
     """
     for i in issns:
-        if len(i.replace('-', '')) == 8:
+        if is_valid_issn(i):
             return True
     return False
 
@@ -99,7 +120,7 @@ def has_valid_title(titles: list):
     :return: True if the list contains at least one valid title, False otherwise
     """
     for t in titles:
-        if len(t) > 0:
+        if is_valid_title(t):
             return True
     return False
 
@@ -131,9 +152,27 @@ def save_char_freq(c2freq: dict):
     final_c2freq.close()
 
 
-def read_base(base_name: str, mode='create_base'):
+def mount_issn2issnl_dict(path_file_portal_issn: str):
+    """
+    Mounts a dictionary where each key is a ISSN and each value its ISSN-L
+    :param path_file_portal_issn: path of the base portal_issn (in csv format)
+    :return: a dict issn2issnl
+    """
+    ps = [d.split('\t') for d in open(path_file_portal_issn)]
+    dict_i2l = {}
+    for i in ps[1:]:
+        if i[1] not in dict_i2l:
+            if i[0] != '':
+                dict_i2l[i[1].replace('-', '').upper()] = i[0].replace('-', '').upper()
+            else:
+                dict_i2l[i[1].replace('-', '').upper()] = i[1].replace('-', '').upper()
+    return dict_i2l
+
+
+def read_base(base_name: str, issn2issnl: dict, mode='create_base'):
     """
     Reads the attributes of a index base
+    :param issn2issnl: a dict where each key is a issn and each value is a issn-l
     :param base_name: the name of the index base
     :param mode: the mode of exectution: create_base to create a base and (ii) count to count the number of char's ocurrences
     :return: a dict where each key is a issn-l and each value is a list of one list of issns and one list of titles
@@ -141,9 +180,9 @@ def read_base(base_name: str, mode='create_base'):
     dict_base = {}
     num_ignored_lines = 0
 
-    index_issn_l = BASE2COLUMN_INDEXES.get(base_name).get('issn_l')
-    indexes_issn = BASE2COLUMN_INDEXES.get(base_name).get('issn')
-    indexes_title = BASE2COLUMN_INDEXES.get(base_name).get('title')
+    col_issnl = BASE2COLUMN_INDEXES.get(base_name).get('issnl')
+    cols_issn = BASE2COLUMN_INDEXES.get(base_name).get('issn')
+    cols_title = BASE2COLUMN_INDEXES.get(base_name).get('title')
     base_sep = BASE2COLUMN_INDEXES.get(base_name).get('sep')
 
     base_data = open(DEFAULT_DIR_INDEXES + base_name + '.csv')
@@ -161,39 +200,35 @@ def read_base(base_name: str, mode='create_base'):
     while line:
         i = line.split(base_sep)
 
-        try:
-            issns = [i[j].strip() for j in indexes_issn if i[j].strip() != '' and is_valid_issn(i[j].strip())]
-            issns = list(set([x.replace('-', '') for x in issns if x != '****-****']))
-        except IndexError:
-            t = line.count('\t')
-            print(line, t)
-
-        if index_issn_l is not None and i[index_issn_l] != '':
-            issn_l = i[index_issn_l].replace('-', '')
-        elif len(issns) > 0:
-            for x in sorted(issns):
-                issn_l = i2l.get(x, '')
-                if issn_l != '':
-                    break
-            if issn_l == '':
-                issn_l = issns[0].replace('-', '')
+        issns = [i[j].strip().upper() for j in cols_issn if i[j].strip() != '' and is_valid_issn(i[j].strip())]
+        issns = list(set([x.replace('-', '') for x in issns if x != '****-****']))
 
         if has_valid_issn(issns):
-            titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip()) for j in indexes_title]))
-            titles = list(set([t.upper() for t in titles if is_valid_title(t)]))
+            if col_issnl is None:
+                if len(issns) > 0:
+                    issnl = get_issnl_from_dict(issns, issn2issnl)
+            else:
+                issnl = get_issnl_from_base(issns, col_issnl)
 
-            if mode == 'count':
-                titles = list(set([i[j].strip() for j in indexes_title if is_valid_title(i[j].strip())]))
-                all_original_titles.extend(titles)
+            if issnl is not None:
+                titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip(), include_parenthesis_info=True) for j in cols_title]))
+                titles.extend(list(set([StringProcessor.preprocess_journal_title(i[j].strip()) for j in cols_title])))
+                titles = list(set([t.upper() for t in titles if is_valid_title(t)]))
 
-            if issn_l != '' and len(titles) > 0:
-                if issn_l not in dict_base:
-                    dict_base[issn_l] = [issns, titles]
-                else:
-                    dict_base[issn_l][0].extend(issns)
-                    dict_base[issn_l][0] = list(set(dict_base[issn_l][0]))
-                    dict_base[issn_l][1].extend(titles)
-                    dict_base[issn_l][1] = list(set(dict_base[issn_l][1]))
+                if mode == 'count':
+                    titles = list(set([i[j].strip() for j in cols_title if is_valid_title(i[j].strip())]))
+                    all_original_titles.extend(titles)
+
+                if issnl != '' and len(titles) > 0:
+                    if issnl not in dict_base:
+                        dict_base[issnl] = [issns, titles]
+                    else:
+                        dict_base[issnl][0].extend(issns)
+                        dict_base[issnl][0] = list(set(dict_base[issnl][0]))
+                        dict_base[issnl][1].extend(titles)
+                        dict_base[issnl][1] = list(set(dict_base[issnl][1]))
+            else:
+                num_ignored_lines += 1
         else:
             num_ignored_lines += 1
 
@@ -266,24 +301,19 @@ if __name__ == '__main__':
         DEFAULT_DIR_INDEXES = sys.argv[1]
         DEFAULT_MODE = sys.argv[2]
 
-    i2l = {}
-    fileiel = open(DEFAULT_DIR_INDEXES + 'issn2issnl.txt')
-    fileiel.readline()
-    for l in fileiel:
-        els = l.strip().split('\t')
-        i2l[els[0]] = els[1]
+    issn2issnl = mount_issn2issnl_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
 
     bases_names = ['doaj', 'latindex', 'portal_issn', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos_jcr']
 
     if DEFAULT_MODE == 'create_base':
         bases = []
         for b in bases_names:
-            bases.append(read_base(b))
+            bases.append(read_base(b, issn2issnl))
         merged_bases = merge_bases(bases)
         save_bases(merged_bases)
     else:
         titles = []
         for b in bases_names:
-            titles.extend(read_base(b, mode='count'))
+            titles.extend(read_base(b, issn2issnl, mode='count'))
         char2freq = check_char_freq(titles)
         save_char_freq(char2freq)

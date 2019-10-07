@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 import asyncio
+import json
+import logging
+import os
 import sys
-from asyncio import TimeoutError
 
-from aiohttp import ClientSession
+from asyncio import TimeoutError
+from aiohttp import ClientSession, ClientConnectorError
 from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from pymongo import MongoClient
+
+
+DEFAULT_MODE = ''
 
 
 def save_into_local_database(local_database, collection, response, ref_id):
@@ -22,6 +28,13 @@ def save_into_local_database(local_database, collection, response, ref_id):
         }
     }
     local_database[collection].update_one(query, new_data)
+
+
+def save_into_disk(response, url):
+    with open(PATH_RESULTS, 'a') as f:
+        response['url_searched'] = url
+        json.dump(response, f)
+        f.write('\n')
 
 
 async def fetch(local_database, collection, url, session, ref_id):
@@ -50,7 +63,36 @@ async def fetch(local_database, collection, url, session, ref_id):
                 local_database[collection].update_one(query, new_data)
             else:
                 print('ref: %s status: %d' % (ref_id, response.status))
-        
+
+
+async def fetch_with_doi_list(url, session):
+    """
+    Fetchs the url containing the doi code.
+    Calls the method save_into_local_database with the response as a parameter (in json format).
+    """
+    try:
+        async with session.get(url) as response:
+            try:
+                response = await response.json()
+                save_into_disk(response, url)
+            except (ServerDisconnectedError, TimeoutError):
+                logging.warning('ServerDisconnectedError %s' % url)
+            except ContentTypeError:
+                if response.status == 404:
+                    logging.warning('DOINotFound %s' % url)
+                elif response.status == 429:
+                    logging.warning('TooManyRequests %s' % url)
+                else:
+                    logging.warning('ContentTypeError %s' % url)
+    except ServerDisconnectedError:
+        logging.warning('ServerDisconnectedError %s' % url)
+    except TimeoutError:
+        logging.warning('TimeoutError %s' % url)
+    except ContentTypeError:
+        logging.warning('ContentTypeError %s' % url)
+    except ClientConnectorError:
+        logging.warning('ClientConnectorError %s' % url)
+
 
 async def bound_fetch(local_database, collection, sem, url, session, ref_id):
     """
@@ -58,6 +100,27 @@ async def bound_fetch(local_database, collection, sem, url, session, ref_id):
     """
     async with sem:
         await fetch(local_database, collection, url, session, ref_id)
+
+
+async def bound_fetch_with_doi_list(sem, url, session):
+    """
+    Limits the collecting task to a semaphore.
+    """
+    async with sem:
+        await fetch_with_doi_list(url, session)
+
+
+async def run_with_doi_list(doi: list, email: str):
+    url = 'https://api.crossref.org/works/{}'
+    sem = asyncio.Semaphore(SEMAPHORE_LIMIT)
+    tasks = []
+
+    async with ClientSession(headers={'mailto': email}) as session:
+        for d in doi:
+            task = asyncio.ensure_future(bound_fetch_with_doi_list(sem, url.format(d), session))
+            tasks.append(task)
+        responses = asyncio.gather(*tasks)
+        await responses
 
 
 async def run(local_database, collection, references_with_doi, email: str):
@@ -105,25 +168,43 @@ def get_references_with_doi(ref_db_collection):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print('Error: please, enter the references database name')
-        print('Error: please, enter the registered e-mail in the crossref service')
-        print('Error: please, enter the status mode [-1 or no-status]')
-        sys.exit(1)
+    if len(sys.argv) == 3:
+        DEFAULT_MODE = sys.argv[1]
 
-    REFERENCES_DATA_BASE_NAME = sys.argv[1]
-    EMAIL = sys.argv[2]
-    STATUS_MODE = sys.argv[3]
+    if DEFAULT_MODE != '':
+        REFERENCES_DATA_BASE_NAME = sys.argv[1]
+        EMAIL = sys.argv[2]
+        STATUS_MODE = sys.argv[3]
 
-    SEMAPHORE_LIMIT = 10
+        SEMAPHORE_LIMIT = 10
 
-    local_mongo_client = MongoClient()
-    local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
+        local_mongo_client = MongoClient()
+        local_database = local_mongo_client[REFERENCES_DATA_BASE_NAME]
 
-    for collection in local_database.collection_names():
-        references_with_doi = get_references_with_doi(local_database[collection])
-        print('there are %d references with doi in collection %s to be collected' % (references_with_doi.count(), collection))
+        for collection in local_database.collection_names():
+            references_with_doi = get_references_with_doi(local_database[collection])
+            print('there are %d references with doi in collection %s to be collected' % (references_with_doi.count(), collection))
+
+            loop = asyncio.get_event_loop()
+            future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
+            loop.run_until_complete(future)
+    else:
+        logging.basicConfig(filename='/home/rafael/crossref.log', level=logging.WARNING, format='%(message)s')
+        FILE_DOI_LIST = sys.argv[2]
+        EMAIL = sys.argv[3]
+        PATH_RESULTS = sys.argv[4]
+
+        SEMAPHORE_LIMIT = 20
+
+        ds = set([d.strip() for d in open(FILE_DOI_LIST)])
+        print('there are %d DOIs' % len(ds))
+
+        if os.path.exists(PATH_RESULTS):
+            old_ds = set([json.loads(d.strip()).get('url_searched').replace('https://api.crossref.org/works/', '') for d in open(PATH_RESULTS)])
+            ds = list(ds.difference(old_ds))
+
+        print('there are %d DOIs to be collected' % len(ds))
 
         loop = asyncio.get_event_loop()
-        future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
+        future = asyncio.ensure_future(run_with_doi_list(ds, EMAIL))
         loop.run_until_complete(future)
