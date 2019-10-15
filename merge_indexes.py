@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import logging
 import sys
 
@@ -5,7 +6,7 @@ from util.string_processor import StringProcessor
 
 
 DEFAULT_DIR_INDEXES = 'bases/'
-DEFAULT_MODE = 'create_base'
+DEFAULT_MODE = 'create'
 
 BASE2COLUMN_INDEXES = {
         'doaj': {
@@ -169,7 +170,7 @@ def mount_issn2issnl_dict(path_file_portal_issn: str):
     return dict_i2l
 
 
-def read_base(base_name: str, issn2issnl: dict, mode='create_base'):
+def read_base(base_name: str, issn2issnl: dict, mode='create'):
     """
     Reads the attributes of a index base
     :param issn2issnl: a dict where each key is a issn and each value is a issn-l
@@ -211,7 +212,7 @@ def read_base(base_name: str, issn2issnl: dict, mode='create_base'):
                 issnl = get_issnl_from_base(issns, col_issnl)
 
             if issnl is not None:
-                titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip(), include_parenthesis_info=True) for j in cols_title]))
+                titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip(), remove_parenthesis_info=False) for j in cols_title]))
                 titles.extend(list(set([StringProcessor.preprocess_journal_title(i[j].strip()) for j in cols_title])))
                 titles = list(set([t.upper() for t in titles if is_valid_title(t)]))
 
@@ -234,7 +235,7 @@ def read_base(base_name: str, issn2issnl: dict, mode='create_base'):
 
         line = base_data.readline()
 
-    if mode == 'count':
+    if mode == 'count-char':
         return all_original_titles
 
     print('\tlines ignored %d' % num_ignored_lines)
@@ -248,18 +249,20 @@ def merge_bases(bases):
     :return: the merged version of the bases
     """
     merged_bases = {}
-    for b in bases:
+    for code_base, b in enumerate(bases):
         for k, v in b.items():
             if k not in merged_bases:
-                merged_bases[k] = v
+                bases_vector = [0 for x in range(9)]
+                bases_vector[code_base] = 1
+                merged_bases[k] = v + [bases_vector]
             else:
                 existant_issns = merged_bases[k][0]
                 new_issns = v[0]
                 existant_titles = merged_bases[k][1]
                 new_titles = v[1]
-
                 merged_bases[k][0] = list(set(existant_issns).union(set(new_issns)))
                 merged_bases[k][1] = list(set(existant_titles).union(set(new_titles)))
+                merged_bases[k][2][code_base] = 1
     return merged_bases
 
 
@@ -268,26 +271,34 @@ def save_bases(merged_bases):
     Saves the merged bases into the disk
     :param merged_bases: a dictionary representing a merged base
     """
-    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all.csv', 'w')
+    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.2.csv', 'w')
+    final_base.write('\t'.join(['ISSNL', 'ISSNs', 'TITLEs']) + '\t'.join(['DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR']) + '\n')
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
         j = v[0]
         t = v[1]
-        final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)]) + '\n')
+        base_codes = v[2]
+        final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes]) + '\n')
     final_base.close()
 
-    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl.csv', 'w')
+    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.2.csv', 'w')
+    final_title2issnl.write('\t'.join(['TITLE', 'ISSNs']) + '\t'.join(['DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR']) + '\n')
     title2issnl = {}
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
         t = v[1]
+        base_codes = v[2]
         for ti in t:
             if ti not in title2issnl:
-                title2issnl[ti] = [k]
+                title2issnl[ti] = [[k], base_codes]
             else:
-                title2issnl[ti].append(k)
+                title2issnl[ti][0].append(k)
+                past_base_codes = title2issnl[ti][1]
+                title2issnl[ti][1] = list(map(max, zip(base_codes, past_base_codes)))
     for title in sorted(title2issnl):
-        final_title2issnl.write('%s\t%s' % (title, '#'.join(title2issnl.get(title))) + '\n')
+        data_issns = title2issnl.get(title)[0]
+        data_base_codes = title2issnl.get(title)[1]
+        final_title2issnl.write('%s\t%s\t%s' % (title, '#'.join(data_issns), '\t'.join([str(ci) for ci in data_base_codes])) + '\n')
     final_title2issnl.close()
 
 
@@ -303,17 +314,17 @@ if __name__ == '__main__':
 
     issn2issnl = mount_issn2issnl_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
 
-    bases_names = ['doaj', 'latindex', 'portal_issn', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos_jcr']
+    bases_names = ['doaj', 'latindex', 'portal_issn', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos', 'wos_jcr']
 
-    if DEFAULT_MODE == 'create_base':
+    if DEFAULT_MODE == 'create':
         bases = []
         for b in bases_names:
             bases.append(read_base(b, issn2issnl))
         merged_bases = merge_bases(bases)
         save_bases(merged_bases)
-    else:
+    elif DEFAULT_MODE == 'count-char':
         titles = []
         for b in bases_names:
-            titles.extend(read_base(b, issn2issnl, mode='count'))
+            titles.extend(read_base(b, issn2issnl, mode='count-char'))
         char2freq = check_char_freq(titles)
         save_char_freq(char2freq)

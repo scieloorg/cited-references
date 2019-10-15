@@ -11,9 +11,6 @@ from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
 from pymongo import MongoClient
 
 
-DEFAULT_MODE = ''
-
-
 def save_into_local_database(local_database, collection, response, ref_id):
     """
     Receives a response (in json format) and its ref_id.
@@ -42,27 +39,36 @@ async def fetch(local_database, collection, url, session, ref_id):
     Fetchs the url containing the doi code.
     Calls the method save_into_local_database with the response as a parameter (in json format).
     """
-    async with session.get(url) as response:
-        try:
-            response = await response.json()
-            save_into_local_database(local_database, collection, response, ref_id)
-        except (ServerDisconnectedError, TimeoutError):
-            query = { '_id': ref_id }
-            new_data = { '$set': { 
-                'status': -2
-                }
-            }
-            local_database[collection].update_one(query, new_data)
-        except ContentTypeError:
-            if response.status == 404:
+    try:
+        async with session.get(url) as response:
+            try:
+                response = await response.json()
+                save_into_local_database(local_database, collection, response, ref_id)
+            except (ServerDisconnectedError, TimeoutError):
                 query = { '_id': ref_id }
-                new_data = { '$set': { 
-                    'status': -1 
+                new_data = { '$set': {
+                    'status': -2
                     }
                 }
                 local_database[collection].update_one(query, new_data)
-            else:
-                print('ref: %s status: %d' % (ref_id, response.status))
+            except ContentTypeError:
+                if response.status == 404:
+                    query = { '_id': ref_id }
+                    new_data = { '$set': {
+                        'status': -1
+                        }
+                    }
+                    local_database[collection].update_one(query, new_data)
+                else:
+                    print('ref: %s status: %d' % (ref_id, response.status))
+    except ServerDisconnectedError:
+        print('server disconnected error %s' % ref_id)
+    except TimeoutError:
+        print('timeout error %s' % ref_id)
+    except ContentTypeError:
+        print('content type error %s' % ref_id)
+    except ClientConnectorError:
+        print('client connector error %s' % ref_id)
 
 
 async def fetch_with_doi_list(url, session):
@@ -168,10 +174,9 @@ def get_references_with_doi(ref_db_collection):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        DEFAULT_MODE = sys.argv[1]
+    DEFAULT_MODE = sys.argv[1]
 
-    if DEFAULT_MODE != '':
+    if DEFAULT_MODE == '':
         REFERENCES_DATA_BASE_NAME = sys.argv[1]
         EMAIL = sys.argv[2]
         STATUS_MODE = sys.argv[3]
@@ -189,7 +194,7 @@ if __name__ == "__main__":
             future = asyncio.ensure_future(run(local_database, collection, references_with_doi, EMAIL))
             loop.run_until_complete(future)
     else:
-        logging.basicConfig(filename='/home/rafael/crossref.log', level=logging.WARNING, format='%(message)s')
+        logging.basicConfig(filename='crossref.log', level=logging.WARNING, format='%(message)s')
         FILE_DOI_LIST = sys.argv[2]
         EMAIL = sys.argv[3]
         PATH_RESULTS = sys.argv[4]
