@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import json
 import sys
 
 USEFUL_COLUMNS_INDEXES = [1, 4, 13, 22, 25, 35, 37, 39, 56, 57, 81, 83, 96, 102]
+USEFUL_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title', 'title_proper', 'country']
+NORMALIZED_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title1', 'abbreviated_key_title2', 'abbreviated_key_title3', 'title_proper1', 'title_proper2', 'title_proper3', 'country']
 IGNORE_ROW_PHRASES = []
 IGNORE_ROW_PHRASES.append('Your search returned no results')
 IGNORE_ROW_PHRASES.append('This legacy record is lacking')
@@ -22,9 +25,59 @@ def clean_csv(path_csv: str):
         line = file_tmp_original_data.readline()
         while line:
             if IGNORE_ROW_PHRASES[0] not in line and IGNORE_ROW_PHRASES[1] not in line and IGNORE_ROW_PHRASES[2] not in line:
-                sline = line.split(',')
-                filtered_line = ','.join([sline[k] for k in USEFUL_COLUMNS_INDEXES])
-                tmp_cleaned_data.append(filtered_line.strip())
+                line_json = json.loads(line)
+                extracted_values = [line_json.get(k, []) for k in USEFUL_KEYS]
+                normalized_values = []
+
+                # appends the issnl
+                issn_l = extracted_values[0]
+                if len(issn_l) == 1:
+                    normalized_values.append(issn_l[0])
+                elif len(issn_l) > 1:
+                    print('there is something wrong %s' % str(issn_l))
+                elif len(issn_l) == 0:
+                    normalized_values.append('')
+
+                # append the issn
+                issn = extracted_values[1]
+                if issn != '':
+                    normalized_values.append(issn)
+                else:
+                    normalized_values.append('')
+
+                # appends the key title
+                key_title = extracted_values[2]
+                if len(key_title) == 1:
+                    normalized_values.append(key_title[0])
+                elif len(key_title) > 1:
+                    print('there is something wrong %s' % str(key_title))
+                else:
+                    normalized_values.append('')
+
+                # appends the abrev titles; there are a maximum of 3 abreviated titles - index 3
+                abrev_titles = extracted_values[3]
+                while len(abrev_titles) != 3:
+                    abrev_titles.append('')
+                normalized_values.extend(abrev_titles)
+
+                # appends the titles proper; there are a maximum of 3 titles proper - index 4
+                title_proper = extracted_values[4]
+                while len(title_proper) != 3:
+                    title_proper.append('')
+                normalized_values.extend(title_proper)
+
+                # appends the country
+                country = extracted_values[5]
+                if len(country) == 1:
+                    normalized_values.append(country[0])
+                elif len(country) > 1:
+                    print('there is something wrong %s' % str(country))
+                else:
+                    normalized_values.append('')
+
+                cleaned_values = '\t'.join([v.replace('\t', ' ').strip() for v in normalized_values])
+
+                tmp_cleaned_data.append(cleaned_values)
                 len_included_lines += 1
             else:
                 len_ignored_lines += 1
@@ -49,6 +102,7 @@ if __name__ == '__main__':
 
     print('Saving cleaned data on disk')
     file_csv_cleaned = open(path_csv.split('.csv')[0] + '_cleaned.csv', 'w')
+    file_csv_cleaned.write('\t'.join(NORMALIZED_KEYS) + '\n')
 
     for c in cleaned_data:
         file_csv_cleaned.write(c + '\n')

@@ -22,7 +22,7 @@ BASE2COLUMN_INDEXES = {
         'portal_issn': {
             'issn_l': 0,
             'issn': [1],
-            'title': [2, 3, 4, 5],
+            'title': [2, 3, 4, 5, 6, 7, 8],
             'sep': '\t'
         },
         'scielo': {
