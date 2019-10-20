@@ -49,12 +49,19 @@ def parse_html(path_html_file: str):
                 new_jii = new_jii + '\t' + jii.strip()
         journals_time_and_issns.append(new_jii)
 
+    normalized_journals_time_and_issns = []
+    for jti in journals_time_and_issns:
+        tmp_jti = jti.split('\t')
+        while len(tmp_jti) != 5:
+            tmp_jti.append('')
+        normalized_journals_time_and_issns.append('\t'.join(tmp_jti))
+
     # other journal's attributes
     journals_other_attrs = [dd.text.strip().replace('\n', '\t') for dd in soupped_html.find_all('dd')]
 
     tsv_list = []
     for i, j in enumerate(journals_names):
-        tsv_j = '\t'.join([page_id, page_name, j.replace('\t', ''), journals_time_and_issns[i], journals_other_attrs[i], '\n'])
+        tsv_j = '\t'.join([page_id, page_name, j.replace('\t', ''), normalized_journals_time_and_issns[i], journals_other_attrs[i], '\n'])
         tsv_list.append(tsv_j)
     return tsv_list
 
