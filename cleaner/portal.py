@@ -3,8 +3,8 @@ import json
 import sys
 
 USEFUL_COLUMNS_INDEXES = [1, 4, 13, 22, 25, 35, 37, 39, 56, 57, 81, 83, 96, 102]
-USEFUL_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title', 'title_proper', 'country']
-NORMALIZED_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title1', 'abbreviated_key_title2', 'abbreviated_key_title3', 'title_proper1', 'title_proper2', 'title_proper3', 'country']
+USEFUL_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title', 'title_proper', 'country', 'dates_of_publication']
+NORMALIZED_KEYS = ['issn_l', '_issn', 'key_title', 'abbreviated_key_title1', 'abbreviated_key_title2', 'abbreviated_key_title3', 'title_proper1', 'title_proper2', 'title_proper3', 'country', 'start_year', 'end_year']
 IGNORE_ROW_PHRASES = []
 IGNORE_ROW_PHRASES.append('Your search returned no results')
 IGNORE_ROW_PHRASES.append('This legacy record is lacking')
@@ -75,6 +75,24 @@ def clean_csv(path_csv: str):
                 else:
                     normalized_values.append('')
 
+                # appends the start and end years
+                years = extracted_values[6]
+                start_years = ''
+                end_years = ''
+                if len(years) > 0:
+                    start_years = '#'.join(sorted([y[0] for y in [vi.split('-') for vi in years if len(vi.split('-')) > 0] if y[0].isdigit()], key=lambda x: int(x)))
+                    end_years = '#'.join(sorted([y[1].strip()[:4] for y in [vi.split('-') for vi in years if len(vi.split('-')) > 1] if y[1].strip()[:4].isdigit() and y[1].strip()[:4] != '9999'], key=lambda x: int(x)))
+
+                if start_years is not None and len(start_years) >= 0:
+                    normalized_values.append(start_years)
+                else:
+                    normalized_values.append('')
+
+                if end_years is not None and len(end_years) >= 0:
+                    normalized_values.append(end_years)
+                else:
+                    normalized_values.append('')
+
                 cleaned_values = '\t'.join([v.replace('\t', ' ').strip() for v in normalized_values])
 
                 tmp_cleaned_data.append(cleaned_values)
@@ -101,7 +119,7 @@ if __name__ == '__main__':
     cleaned_data = clean_csv(path_csv)
 
     print('Saving cleaned data on disk')
-    file_csv_cleaned = open(path_csv.split('.csv')[0] + '_cleaned.csv', 'w')
+    file_csv_cleaned = open(path_csv.split('.csv')[0] + '_cleaned_v0.4.csv', 'w')
     file_csv_cleaned.write('\t'.join(NORMALIZED_KEYS) + '\n')
 
     for c in cleaned_data:

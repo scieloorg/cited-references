@@ -323,7 +323,7 @@ def save_bases(merged_bases):
     Saves the merged bases into the disk
     :param merged_bases: a dictionary representing a merged base
     """
-    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.3.csv', 'w')
+    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.4.csv', 'w')
     final_base.write('\t'.join(['ISSNL', 'ISSNs', 'TITLEs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES']) + '\n')
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
@@ -334,8 +334,8 @@ def save_bases(merged_bases):
         final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes] + ['#'.join(vc for vc in c)]) + '\n')
     final_base.close()
 
-    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.3.csv', 'w')
-    final_title2issnl.write('\t'.join(['TITLE', 'ISSNs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES']) + '\n')
+    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.4.csv', 'w')
+    final_title2issnl.write('\t'.join(['TITLE', 'ISSNLs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES']) + '\n')
     title2issnl = {}
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
@@ -351,10 +351,10 @@ def save_bases(merged_bases):
                 past_base_codes = title2issnl[ti][2]
                 title2issnl[ti][2] = list(map(max, zip(base_codes, past_base_codes)))
     for title in sorted(title2issnl):
-        data_issns = title2issnl.get(title)[0]
+        data_issnls = title2issnl.get(title)[0]
         data_countries = title2issnl.get(title)[1]
         data_base_codes = [str(i) for i in title2issnl.get(title)[2]]
-        final_title2issnl.write('%s\t%s\t%s\t%s' % (title, '#'.join(data_issns), '\t'.join(data_base_codes), '#'.join(data_countries)) + '\n')
+        final_title2issnl.write('%s\t%s\t%s\t%s' % (title, '#'.join(data_issnls), '\t'.join(data_base_codes), '#'.join(data_countries)) + '\n')
     final_title2issnl.close()
 
 
