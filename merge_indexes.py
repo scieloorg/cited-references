@@ -8,6 +8,7 @@ from util.string_processor import StringProcessor
 DEFAULT_DIR_INDEXES = 'bases/'
 DEFAULT_MODE = 'create'
 DEFAULT_USE_COUNTRY_FROM_DICT = True
+DEFAULT_USE_ISSNL_FROM_DICT = True
 
 BASE2COLUMN_INDEXES = {
         'doaj': {
@@ -27,7 +28,9 @@ BASE2COLUMN_INDEXES = {
             'issn': [1],
             'title': [2, 3, 4, 5, 6, 7, 8],
             'sep': '\t',
-            'country': 9
+            'country': 9,
+            'start_year': 10,
+            'end_year': 11,
         },
         'scielo': {
             'issn': [1, 2, 3],
@@ -68,9 +71,9 @@ BASE2COLUMN_INDEXES = {
 
 def is_valid_issn(issn: str):
     """
-    Checks if an issn is valid
+    Checks if an ISSN is valid
     :param issn: the original issn code
-    :return: True if the issn is valid, False otherwise
+    :return: True if the ISSN is valid, False otherwise
     """
     issn = issn.replace('-', '')
     if len(issn) == 8:
@@ -162,46 +165,101 @@ def save_char_freq(c2freq: dict):
 
 
 def mount_issnl2country_dict(path_file_portal_issn: str):
-    """Mounts a dictionary where each key is a ISSN-L and each value is a country
+    """
+    Mounts a dictionary where each key is an ISSN-L and each value is a country
     :param path_file_portal_issn: path of the base portal_issn (in csv format)
     :return: a dict issnl2country
     """
-    ps = [d.split('\t') for d in open(path_file_portal_issn)]
+    col_issnl = BASE2COLUMN_INDEXES.get('portal_issn').get('issn_l')
+    cols_issn = BASE2COLUMN_INDEXES.get('portal_issn').get('issn')[0]
+    col_country = BASE2COLUMN_INDEXES.get('portal_issn').get('country')
+    base_sep = BASE2COLUMN_INDEXES.get('portal_issn').get('sep')
+
+    ps = [d.split(base_sep) for d in open(path_file_portal_issn)]
     dict_il2c = {}
     for i in ps[1:]:
-        if i[0] != '':
-            if i[0] not in dict_il2c:
-                dict_il2c[i[0].replace('-', '').upper()] = {i[9].strip().upper()}
+        key_issnl = i[col_issnl].replace('-', '').upper()
+        value_issn = i[cols_issn].replace('-', '').upper()
+        value_country = i[col_country].strip().upper()
+        if key_issnl != '':
+            if key_issnl not in dict_il2c:
+                dict_il2c[key_issnl] = {'-'.join([value_issn, value_country])}
             else:
-                dict_il2c[i[0].replace('-', '').upper()].add(i[9].strip().upper())
+                dict_il2c[key_issnl].add('-'.join([value_issn, value_country]))
     return dict_il2c
+
+
+def mount_issnl2years_dict(path_file_portal_issn: str):
+    """
+    Mounts a dictionary where each key is an ISSN-L and each value is a string composed of start and end years
+    :param path_file_portal_issn: path of the base portal_issn (in csv format)
+    :return: a dict issnl2years
+    """
+    col_issnl = BASE2COLUMN_INDEXES.get('portal_issn').get('issn_l')
+    cols_issn = BASE2COLUMN_INDEXES.get('portal_issn').get('issn')[0]
+    col_start_year = BASE2COLUMN_INDEXES.get('portal_issn').get('start_year')
+    col_end_year = BASE2COLUMN_INDEXES.get('portal_issn').get('end_year')
+    base_sep = BASE2COLUMN_INDEXES.get('portal_issn').get('sep')
+
+    ps = [d.split(base_sep) for d in open(path_file_portal_issn)]
+    dict_il2ys = {}
+    for i in ps[1:]:
+        key_issnl = i[col_issnl].replace('-', '').upper()
+        value_issn = i[cols_issn].replace('-', '').upper()
+        value_start_year = i[col_start_year].strip()
+        value_end_year = i[col_end_year].strip()
+        if key_issnl != '':
+            if key_issnl not in dict_il2ys:
+                dict_il2ys[key_issnl] = {'-'.join([value_issn, value_start_year, value_end_year])}
+            else:
+                dict_il2ys[key_issnl].add('-'.join([value_issn, value_start_year, value_end_year]))
+    return dict_il2ys
 
 
 def save_issnl2country_dict(issnl2country: dict):
     """
     Saves the issnl2country dictionary into the disk
-    :param issnl2country: a dictionary where each key is a issn-l and each value is a country
+    :param issnl2country: a dictionary where each key is an ISSN-L and each value is a country
     """
-    file_il2country = open(DEFAULT_DIR_INDEXES + '../issnl2country.csv', 'w')
+    file_il2country = open(DEFAULT_DIR_INDEXES + '../issnl2country_v0.4.csv', 'w')
     for k in sorted(issnl2country):
-        file_il2country.write('%s\t%s' % (k, list(issnl2country[k])[0]) + '\n')
+        file_il2country.write('%s\t%s' % (k, '#'.join(list(issnl2country[k]))) + '\n')
     file_il2country.close()
+
+
+def save_issnl2years_dict(issnl2years: dict):
+    """
+    Saves the issnl2years dictionary into the disk
+    :param issnl2years: a dictionary where each key is an ISSN-L and each value is the start and end years
+    """
+    file_il2years = open(DEFAULT_DIR_INDEXES + '../issnl2country_v0.4.csv', 'w')
+    for k in sorted(issnl2years):
+        file_il2years.write('%s\t%s' % (k, '#'.join(list(issnl2years[k]))) + '\n')
+    file_il2years.close()
 
 
 def mount_issn2issnl_dict(path_file_portal_issn: str):
     """
-    Mounts a dictionary where each key is a ISSN and each value is a ISSN-L
+    Mounts a dictionary where each key is an ISSN and each value is a ISSN-L
     :param path_file_portal_issn: path of the base portal_issn (in csv format)
     :return: a dict issn2issnl
     """
-    ps = [d.split('\t') for d in open(path_file_portal_issn)]
+    col_issnl = BASE2COLUMN_INDEXES.get('portal_issn').get('issn_l')
+    cols_issn = BASE2COLUMN_INDEXES.get('portal_issn').get('issn')
+    base_sep = BASE2COLUMN_INDEXES.get('portal_issn').get('sep')
+
+    ps = [d.split(base_sep) for d in open(path_file_portal_issn)]
     dict_i2l = {}
     for i in ps[1:]:
-        if i[1] not in dict_i2l:
-            if i[0] != '':
-                dict_i2l[i[1].replace('-', '').upper()] = i[0].replace('-', '').upper()
+        value_issnl = i[col_issnl].strip().replace('-', '').upper()
+        key_issn = i[cols_issn][0].strip().replace('-', '').upper()
+
+        if key_issn not in dict_i2l:
+            if value_issnl != '':
+                dict_i2l[key_issn] = value_issnl
             else:
-                dict_i2l[i[1].replace('-', '').upper()] = i[1].replace('-', '').upper()
+                # assumes that the issn is the issn-l
+                dict_i2l[key_issn] = key_issn
     return dict_i2l
 
 
@@ -216,7 +274,7 @@ def read_base(base_name: str, issn2issnl: dict, mode='create'):
     dict_base = {}
     num_ignored_lines = 0
 
-    col_issnl = BASE2COLUMN_INDEXES.get(base_name).get('issnl')
+    col_issnl = BASE2COLUMN_INDEXES.get(base_name).get('issn_l')
     cols_issn = BASE2COLUMN_INDEXES.get(base_name).get('issn')
     cols_title = BASE2COLUMN_INDEXES.get(base_name).get('title')
     col_country = BASE2COLUMN_INDEXES.get(base_name).get('country')
@@ -245,7 +303,7 @@ def read_base(base_name: str, issn2issnl: dict, mode='create'):
                 if len(issns) > 0:
                     issnl = get_issnl_from_dict(issns, issn2issnl)
             else:
-                issnl = get_issnl_from_base(issns, col_issnl)
+                issnl = get_issnl_from_base(issns, col_issnl, issn2issnl)
 
             if issnl is not None:
                 titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip(), remove_parenthesis_info=False) for j in cols_title]))
@@ -267,16 +325,21 @@ def read_base(base_name: str, issn2issnl: dict, mode='create'):
                     all_original_titles.extend(titles)
 
                 if issnl != '' and len(titles) > 0:
+                    countries = set()
                     if DEFAULT_USE_COUNTRY_FROM_DICT:
                         countries = issnl2country.get(issnl, set())
+
+                    years = issnl2years.get(issnl, set())
+
                     if issnl not in dict_base:
-                        dict_base[issnl] = [issns, titles, countries]
+                        dict_base[issnl] = [issns, titles, countries, years]
                     else:
                         dict_base[issnl][0].extend(issns)
                         dict_base[issnl][0] = list(set(dict_base[issnl][0]))
                         dict_base[issnl][1].extend(titles)
                         dict_base[issnl][1] = list(set(dict_base[issnl][1]))
                         dict_base[issnl][2] = dict_base[issnl][2].union(countries)
+                        dict_base[issnl][3] = dict_base[issnl][3].union(years)
             else:
                 num_ignored_lines += 1
         else:
@@ -311,10 +374,15 @@ def merge_bases(bases):
                 new_titles = v[1]
                 existant_countries = merged_bases[k][2]
                 new_countries = v[2]
+                existant_years = merged_bases[k][3]
+                new_years = v[3]
+
                 merged_bases[k][0] = list(set(existant_issns).union(set(new_issns)))
                 merged_bases[k][1] = list(set(existant_titles).union(set(new_titles)))
                 merged_bases[k][2] = existant_countries.union(new_countries)
-                merged_bases[k][3][code_base] = 1
+                merged_bases[k][3] = existant_years.union(new_years)
+                merged_bases[k][4][code_base] = 1
+
     return merged_bases
 
 
@@ -324,14 +392,17 @@ def save_bases(merged_bases):
     :param merged_bases: a dictionary representing a merged base
     """
     final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.4.csv', 'w')
-    final_base.write('\t'.join(['ISSNL', 'ISSNs', 'TITLEs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES']) + '\n')
+    final_base.write('\t'.join(['ISSNL', 'ISSNs', 'TITLEs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS']) + '\n')
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
         j = v[0]
         t = v[1]
         c = v[2]
-        base_codes = v[3]
-        final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes] + ['#'.join(vc for vc in c)]) + '\n')
+        y = v[3]
+
+        base_codes = v[4]
+
+        final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes] + ['#'.join(vc for vc in c)] + ['#'.join([vy for vy in y])]) + '\n')
     final_base.close()
 
     final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.4.csv', 'w')
@@ -341,20 +412,24 @@ def save_bases(merged_bases):
         v = merged_bases.get(k)
         t = v[1]
         c = v[2]
-        base_codes = v[3]
+        y = v[3]
+
+        base_codes = v[4]
         for ti in t:
             if ti not in title2issnl:
-                title2issnl[ti] = [[k], c, base_codes]
+                title2issnl[ti] = [[k], c, y, base_codes]
             else:
                 title2issnl[ti][0].append(k)
                 title2issnl[ti][1] = title2issnl[ti][1].union(c)
-                past_base_codes = title2issnl[ti][2]
-                title2issnl[ti][2] = list(map(max, zip(base_codes, past_base_codes)))
+                title2issnl[ti][2] = title2issnl[ti][2].union(y)
+                past_base_codes = title2issnl[ti][3]
+                title2issnl[ti][3] = list(map(max, zip(base_codes, past_base_codes)))
     for title in sorted(title2issnl):
         data_issnls = title2issnl.get(title)[0]
         data_countries = title2issnl.get(title)[1]
-        data_base_codes = [str(i) for i in title2issnl.get(title)[2]]
-        final_title2issnl.write('%s\t%s\t%s\t%s' % (title, '#'.join(data_issnls), '\t'.join(data_base_codes), '#'.join(data_countries)) + '\n')
+        data_years = title2issnl.get(title)[2]
+        data_base_codes = [str(i) for i in title2issnl.get(title)[3]]
+        final_title2issnl.write('%s\t%s\t%s\t%s\t%s' % (title, '#'.join(data_issnls), '\t'.join(data_base_codes), '#'.join(data_countries), '#'.join(data_years)) + '\n')
     final_title2issnl.close()
 
 
@@ -370,8 +445,9 @@ if __name__ == '__main__':
 
     issn2issnl = mount_issn2issnl_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
     issnl2country = mount_issnl2country_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
+    issnl2years = mount_issnl2years_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
 
-    bases_names = ['doaj', 'latindex', 'portal_issn', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos', 'wos_jcr']
+    bases_names = ['portal_issn', 'doaj', 'latindex', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos', 'wos_jcr']
 
     if DEFAULT_MODE == 'create':
         bases = []
