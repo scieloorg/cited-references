@@ -21,7 +21,12 @@ BASE2COLUMN_INDEXES = {
             'issn': [0],
             'title': [2, 4, 5],
             'sep': '\t',
-            'country': 3
+            'country': 3,
+        },
+        'nlm': {
+            'issn': [3, 4],
+            'title': [1, 2, 5],
+            'sep': '\t',
         },
         'portal_issn': {
             'issn_l': 0,
@@ -36,37 +41,50 @@ BASE2COLUMN_INDEXES = {
             'issn': [1, 2, 3],
             'title': [4, 5, 6],
             'sep': '\t',
-            'country': 0
+            'country': 0,
         },
         'scimago_jr': {
             'issn': [1, 2],
             'title': [0],
             'sep': ';',
-            'country': 3
+            'country': 3,
         },
         'scopus': {
             'issn': [1, 2],
             'title': [0],
-            'sep': '\t'
+            'sep': '\t',
         }, 
         'ulrich': {
             'issn': [1],
             'title': [2],
             'sep': '\t',
-            'country': 0
+            'country': 0,
         },
         'wos': {
             'issn': [1, 2],
             'title': [0],
             'sep': '\t',
-            'country': 3
+            'country': 3,
         },
         'wos_jcr': {
             'issn': [2],
             'title': [0, 1],
-            'sep': '\t'
+            'sep': '\t',
         }
 }
+
+
+def is_valid_separator(elements: list, sep='|'):
+    """
+    Checks if a separator is valid, i.e., if it not present in each elements' list
+    :param elements: list os str
+    :param sep: a char
+    :return: True if the separator is not in the list elements or False otherwise
+    """
+    for e in elements:
+        if sep in e:
+            return False
+    return True
 
 
 def is_valid_issn(issn: str):
@@ -252,7 +270,7 @@ def mount_issn2issnl_dict(path_file_portal_issn: str):
     dict_i2l = {}
     for i in ps[1:]:
         value_issnl = i[col_issnl].strip().replace('-', '').upper()
-        key_issn = i[cols_issn][0].strip().replace('-', '').upper()
+        key_issn = i[cols_issn[0]].strip().replace('-', '').upper()
 
         if key_issn not in dict_i2l:
             if value_issnl != '':
@@ -364,7 +382,7 @@ def merge_bases(bases):
     for code_base, b in enumerate(bases):
         for k, v in b.items():
             if k not in merged_bases:
-                bases_vector = [0 for x in range(9)]
+                bases_vector = [0 for x in range(len(BASE2COLUMN_INDEXES.keys()))]
                 bases_vector[code_base] = 1
                 merged_bases[k] = v + [bases_vector]
             else:
@@ -392,7 +410,11 @@ def save_bases(merged_bases):
     :param merged_bases: a dictionary representing a merged base
     """
     final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.4.csv', 'w')
-    final_base.write('\t'.join(['ISSNL', 'ISSNs', 'TITLEs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS']) + '\n')
+
+    base_header = '|'.join(['ISSNL', 'ISSNs', 'TITLEs', 'PORTAL_ISSN', 'DOAJ', 'LATINDEX', 'NLM', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS'])
+    base_header_size = len(base_header.split('|'))
+    final_base.write(base_header + '\n')
+
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
         j = v[0]
@@ -401,12 +423,22 @@ def save_bases(merged_bases):
         y = v[3]
 
         base_codes = v[4]
+        
+        base_register = '|'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes] + ['#'.join(vc for vc in c)] + ['#'.join([vy for vy in y])])
+        base_register_size = len(base_register.split('|'))
+        
+        if base_header_size != base_register_size:
+            print('line %s is invalid' % base_register)
 
-        final_base.write('\t'.join([k] + ['#'.join(vj for vj in j)] + ['#'.join(vt for vt in t)] + [str(ci) for ci in base_codes] + ['#'.join(vc for vc in c)] + ['#'.join([vy for vy in y])]) + '\n')
+        final_base.write(base_register + '\n')
     final_base.close()
 
     final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.4.csv', 'w')
-    final_title2issnl.write('\t'.join(['TITLE', 'ISSNLs', 'DOAJ', 'LATINDEX', 'PORTAL_ISSN', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES']) + '\n')
+
+    title_base_header = '|'.join(['TITLE', 'ISSNLs', 'PORTAL_ISSN', 'DOAJ', 'LATINDEX', 'NLM', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS'])
+    title_base_header_size = len(title_base_header.split('|'))
+
+    final_title2issnl.write(title_base_header + '\n')
     title2issnl = {}
     for k in sorted(merged_bases.keys()):
         v = merged_bases.get(k)
@@ -424,12 +456,20 @@ def save_bases(merged_bases):
                 title2issnl[ti][2] = title2issnl[ti][2].union(y)
                 past_base_codes = title2issnl[ti][3]
                 title2issnl[ti][3] = list(map(max, zip(base_codes, past_base_codes)))
+
     for title in sorted(title2issnl):
         data_issnls = title2issnl.get(title)[0]
         data_countries = title2issnl.get(title)[1]
         data_years = title2issnl.get(title)[2]
         data_base_codes = [str(i) for i in title2issnl.get(title)[3]]
-        final_title2issnl.write('%s\t%s\t%s\t%s\t%s' % (title, '#'.join(data_issnls), '\t'.join(data_base_codes), '#'.join(data_countries), '#'.join(data_years)) + '\n')
+
+        title_base_register = '|'.join([title, '#'.join(data_issnls)] + data_base_codes + ['#'.join(data_countries), '#'.join(data_years)])
+        title_base_register_size = len(title_base_register.split('|'))
+
+        if title_base_header_size != title_base_register_size:
+            print('line %s is invalid' % title_base_register)
+
+        final_title2issnl.write(title_base_register + '\n')
     final_title2issnl.close()
 
 
@@ -447,7 +487,7 @@ if __name__ == '__main__':
     issnl2country = mount_issnl2country_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
     issnl2years = mount_issnl2years_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
 
-    bases_names = ['portal_issn', 'doaj', 'latindex', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos', 'wos_jcr']
+    bases_names = ['portal_issn', 'doaj', 'latindex', 'nlm', 'scielo', 'scimago_jr', 'scopus', 'ulrich', 'wos', 'wos_jcr']
 
     if DEFAULT_MODE == 'create':
         bases = []
