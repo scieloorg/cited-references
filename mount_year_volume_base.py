@@ -43,7 +43,7 @@ def get_cited_forms_with_metadata(path_crossref, doi2cited_form: dict):
             message = json_line.get('message', {})
             if isinstance(message, dict):
                 volume = message.get('volume', '')
-                issue = message.get('issue', '')
+                issue = StringProcessor.preprocess_journal_title(message.get('issue', '')).upper()
                 print_year = str(message.get('journal-issue', {}).get('published-print', {}).get('date-parts', [['', '']])[0][0])
                 online_year = str(message.get('journal-issue', {}).get('published-online', {}).get('date-parts', [['', '']])[0][0])
 
@@ -97,10 +97,10 @@ def get_wos_si_source_data(path_wos_si_source):
 
             if issn != '' and year != '' and volume != '':
                 if cited_form_1 != '':
-                    metadata_str_1 = '|'.join([issn, cited_form_1, year, volume])
+                    metadata_str_1 = '|'.join([issn, cited_form_1, year, volume, ''])
                     cited_forms_with_metadata.add(metadata_str_1)
                 if cited_form_2 != '':
-                    metadata_str_2 = '|'.join([issn, cited_form_2, year, volume])
+                    metadata_str_2 = '|'.join([issn, cited_form_2, year, volume, ''])
                     cited_forms_with_metadata.add(metadata_str_2)
 
         line = file_wos_si_source.readline()
@@ -109,7 +109,7 @@ def get_wos_si_source_data(path_wos_si_source):
 
 
 if __name__ == '__main__':
-    PATH_FILE_REFS_WOS_DOI = '/home/rafael/Temp/scielo/doi/refs_wos_doi_fixed.txt'
+    PATH_FILE_REFS_WOS_DOI = '/home/rafael/Temp/scielo/doi/refs_wos_doi.txt'
     PATH_FILE_CROSSREF_RESULTS = '/home/rafael/Temp/scielo/doi/crossref_results.json'
     PATH_FILE_WOS_SI_SOURCE = '/home/rafael/Temp/scielo/doi/WoS-refs_SIsource_ISSN.txt'
     PATH_FILE_RESULTS = '/home/rafael/Temp/scielo/doi/base_year_volume.csv'
