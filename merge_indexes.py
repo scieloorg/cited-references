@@ -74,19 +74,6 @@ BASE2COLUMN_INDEXES = {
 }
 
 
-def is_valid_separator(elements: list, sep='|'):
-    """
-    Checks if a separator is valid, i.e., if it not present in each elements' list
-    :param elements: list os str
-    :param sep: a char
-    :return: True if the separator is not in the list elements or False otherwise
-    """
-    for e in elements:
-        if sep in e:
-            return False
-    return True
-
-
 def is_valid_issn(issn: str):
     """
     Checks if an ISSN is valid
@@ -115,19 +102,22 @@ def get_issnl_from_dict(issns: list, issn2issnl: dict):
     if len(ls) == 1:
         return ls[0]
     elif len(ls) == 0:
-        logging.warning('%s is not in the list' % issns)
-        return None
+        vls = set()
+        for j in issns:
+            if j in issn2issnl.values():
+                vls.add(j)
+        if len(vls) == 1:
+            isl = vls.pop()
+            logging.warning('issn %s is the issn-l' % isl)
+            return isl
+        elif len(vls) == 0:
+            logging.warning('%s is not in the list (neither as a key (issn) nor as a value (issn-l)' % str(issns))
+            return None
+        else:
+            logging.warning('issns (%s) are issn-ls and points to multiple issn-ls (vls)' % str(issns, vls))
+            return None
     else:
         logging.warning('%s links to multiple issn-l' % issns)
-        return None
-
-
-def get_issnl_from_base(issns: list, col_index: int, issn2issnl: dict):
-    i = issns[col_index]
-    if i in issn2issnl:
-        return i
-    else:
-        logging.warning('%s is not in dict' % i)
         return None
 
 
@@ -278,6 +268,8 @@ def mount_issn2issnl_dict(path_file_portal_issn: str):
             else:
                 # assumes that the issn is the issn-l
                 dict_i2l[key_issn] = key_issn
+        else:
+            print('key %s is in the dict already (new value: %s, old value: %s)' % (key_issn, value_issnl, dict_i2l[key_issn]))
     return dict_i2l
 
 
@@ -292,7 +284,6 @@ def read_base(base_name: str, issn2issnl: dict, mode='create'):
     dict_base = {}
     num_ignored_lines = 0
 
-    col_issnl = BASE2COLUMN_INDEXES.get(base_name).get('issn_l')
     cols_issn = BASE2COLUMN_INDEXES.get(base_name).get('issn')
     cols_title = BASE2COLUMN_INDEXES.get(base_name).get('title')
     col_country = BASE2COLUMN_INDEXES.get(base_name).get('country')
@@ -317,11 +308,12 @@ def read_base(base_name: str, issn2issnl: dict, mode='create'):
         issns = list(set([x.replace('-', '') for x in issns if x != '****-****']))
 
         if has_valid_issn(issns):
-            if col_issnl is None:
-                if len(issns) > 0:
-                    issnl = get_issnl_from_dict(issns, issn2issnl)
-            else:
-                issnl = get_issnl_from_base(issns, col_issnl, issn2issnl)
+            if len(issns) > 0:
+                issnl = get_issnl_from_dict(issns, issn2issnl)
+
+            if issnl is None:
+                pass
+                # pass
 
             if issnl is not None:
                 titles = list(set([StringProcessor.preprocess_journal_title(i[j].strip(), remove_parenthesis_info=False) for j in cols_title]))
