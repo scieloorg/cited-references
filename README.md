@@ -12,7 +12,7 @@
 
 ## Collect PID
 
-Collects PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). Pass a "date from" as an argument is optional. In case of do not pass a "date from" as an argument the script will consider the current date as "date from".
+Collect PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). Pass a "date from" as an argument is optional. In case of do not pass a "date from" as an argument the script will consider the current date as "date from".
 
 **How to use**
 
@@ -29,7 +29,7 @@ The script will result in a CSV file named new-pids-from-2019-06-01.csv (in the 
 
 ## Collect Document
 
-Collects Documents through the endpoint [http://articlemeta.scielo.org/api/v1/article](http://articlemeta.scielo.org/api/v1/article). It receives the list of PIDs collected by the Collect PIDs script as data input to obtain the documents from the remote database SciELO. _The script collects the documents in an async manner_.
+Collect Documents through the endpoint [http://articlemeta.scielo.org/api/v1/article](http://articlemeta.scielo.org/api/v1/article). It receives the list of PIDs collected by the Collect PIDs script as data input to obtain the documents from the remote database SciELO. _The script collects the documents in an async manner_.
 
 **How to use**
 
@@ -40,7 +40,7 @@ The script will collect all the documents (pids in the list new-pids-from-2019-0
 
 ## Create references database ref_scielo
 
-Creates the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each _id is '_'.join([pid, citation_index_number]) and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
+Create the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each _id is '_'.join([pid, citation_index_number]) and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
 
 **How to use**
 
@@ -49,7 +49,7 @@ Creates the references database named ref_scielo. The script receives as data in
 
 ## Update references database ref_scielo
 
-Updates the references database named ref_scielo. The script receives as data input the name of the documents database and the new_pids.txt generated in a previous step (collect_pid). The existing ref_scielo database will be updated with the new content of the documents database.
+Update the references database named ref_scielo. The script receives as data input the name of the documents database and the new_pids.txt generated in a previous step (collect_pid). The existing ref_scielo database will be updated with the new content of the documents database.
 
 **How to use**
 
@@ -58,17 +58,17 @@ Updates the references database named ref_scielo. The script receives as data in
 
 ## Analyze Documents
 
-Analyzes Documents with regard to several attributes. It acts in the documents database.
+Analyze Documents with regard to several attributes. It acts in the documents database.
 
 
 ## Analyze References
 
-Analyzes References with regard to several attributes (e.g., presence or not of a valid DOI, type of reference). It acts in the references database.
+Analyze References with regard to several attributes (e.g., presence or not of a valid DOI, type of reference). It acts in the references database.
 
 
 ## Collect CrossRef Metadata from DOI
 
-Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the Document's DOI (Reference's DOI) as data input. The DOI's metadata is saved into the references database (fields crossref_metadata and status), according to the following status codes:
+Collect metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the Document's DOI (Reference's DOI) as data input. The DOI's metadata is saved into the references database (fields crossref_metadata and status), according to the following status codes:
 
 Status | Description
 ------ | ------------
@@ -96,7 +96,7 @@ Collects metadata from the [crossref rest-api](https://www.crossref.org/services
 
 ## Create dictionary Metadata to PID SciELO
 
-Creates dictionaries where each key is a comma separated string of document's metadata (attributes) and the value is the corresponding PID SciELO. It receives SciELO documents database name as data input. Returns two dictionaries in the binary format (readable through "pickle"). There are, until now, two combinations of document's attributes. The possible attributes are as follows:
+Create dictionaries where each key is a comma separated string of document's metadata (attributes) and the value is the corresponding PID SciELO. It receives SciELO documents database name as data input. Returns two dictionaries in the binary format (readable through "pickle"). There are, until now, two combinations of document's attributes. The possible attributes are as follows:
 
 Code | Description | Example
 ---- | ----------- | -------
@@ -127,7 +127,7 @@ _Dictionary Minor_
 
 ## Update dictionary Metadata to PID SciELO
 
-Updates the dictionaries of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents database name and the list of new pids to be included in the dictionaries. Returns new dictionaries in binary format. 
+Update the dictionaries of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents database name and the list of new pids to be included in the dictionaries. Returns new dictionaries in binary format. 
 
 **How to use**
 
@@ -202,7 +202,7 @@ These are the scripts responsible for collecting data from several indexes datab
 
 ## Cleaner-Filter-Portal
 
-Cleans and filter the CSV file provided by issn-scrapper. Removes invalid rows and ignores unnecessary columns. 
+Clean and filter the CSV file provided by issn-scrapper. Removes invalid rows and ignores unnecessary columns. 
 
 **How to use**
 

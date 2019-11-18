@@ -80,6 +80,16 @@ def get_cited_forms_with_metadata(path_crossref, doi2cited_form: dict):
     return cited_forms_with_metadata
 
 
+def get_scielo_data(path_scielo):
+    scielo_results = set()
+    file_scielo = open(path_scielo)
+    line = file_scielo.readline()
+    while line:
+        scielo_results.add(line)
+        line = file_scielo.readline()
+    return scielo_results
+
+
 def get_wos_si_source_data(path_wos_si_source):
     file_wos_si_source = open(path_wos_si_source)
     line = file_wos_si_source.readline()
@@ -109,16 +119,20 @@ def get_wos_si_source_data(path_wos_si_source):
 
 
 if __name__ == '__main__':
-    PATH_FILE_REFS_WOS_DOI = '/home/rafael/Temp/scielo/doi/refs_wos_doi.txt'
-    PATH_FILE_CROSSREF_RESULTS = '/home/rafael/Temp/scielo/doi/crossref_results.json'
-    PATH_FILE_WOS_SI_SOURCE = '/home/rafael/Temp/scielo/doi/WoS-refs_SIsource_ISSN.txt'
-    PATH_FILE_RESULTS = '/home/rafael/Temp/scielo/doi/base_year_volume.csv'
+    PATH_FILE_REFS_WOS_DOI = 'refs_wos_doi.txt'
+    PATH_FILE_CROSSREF_RESULTS = 'crossref_results.json'
+    PATH_FILE_WOS_SI_SOURCE = 'WoS-refs_SIsource_ISSN.txt'
+    PATH_FILE_SCIELO = 'scielo_year_volume.tsv'
+    PATH_FILE_RESULTS = 'base_year_volume.csv'
 
     doi2cited_form = get_doi2cited_form_dict(PATH_FILE_REFS_WOS_DOI)
 
     crossref_data = get_cited_forms_with_metadata(PATH_FILE_CROSSREF_RESULTS, doi2cited_form)
     wos_data = get_wos_si_source_data(PATH_FILE_WOS_SI_SOURCE)
-    merged_data = crossref_data.union(wos_data)
+    scielo_data = get_scielo_data(PATH_FILE_SCIELO)
+
+    cross_and_wos_data = crossref_data.union(wos_data)
+    merged_data = cross_and_wos_data.union(scielo_data)
 
     file_results = open(PATH_FILE_RESULTS, 'w')
     for c in sorted(merged_data):

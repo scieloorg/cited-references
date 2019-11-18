@@ -12,7 +12,7 @@ from xylose.scielodocument import Article, UnavailableMetadataException
 def save_metadata_scielo(data: set, path: str):
     fresults = open(path, 'w')
     for l in sorted(data):
-        fresults.write(l + '\n')
+        fresults.write(l.strip() + '\n')
     fresults.close()
 
 
@@ -34,15 +34,15 @@ if __name__ == '__main__':
             pid = article.data['_id']
 
             year = article.publication_date
-            if year is None or year == '':
-                break
+            if year is None:
+                year = ''
             else:
                 year = year.split('-')[0]
 
             try:
                 volume = article.issue.volume
-                if volume is None or volume == '':
-                    break
+                if volume is None:
+                    volume = ''
             except UnavailableMetadataException as ume:
                 logging.error('ERROR %s' % ume)
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
             issns.add(article.journal.electronic_issn)
             issns.add(article.journal.print_issn)
             issns.add(article.journal.scielo_issn)
-            issns = [i for i in issns if i is not None and i != '']
+            issns = [i.strip().upper() for i in issns if i is not None and i.upper() not in ['', 'ISSN']]
 
             titles = set()
             titles.add(StringProcessor.preprocess_journal_title(article.journal.abbreviated_iso_title))
@@ -67,9 +67,10 @@ if __name__ == '__main__':
 
             for t in sorted(titles):
                 for i in issns:
-                    row = '|'.join([i, t.upper(), year, volume, numero])
-                    results.add(row)
-                    logging.info(row)
+                    if year != '' and volume != '':
+                        row = '|'.join([i, t.upper(), year.strip(), volume.strip(), numero.strip()])
+                        results.add(row)
+                        logging.info(row)
 
     print('saving data')
-    save_metadata_scielo(results, 'scielo_year_volume.tsv')
+    save_metadata_scielo(results, '2019_11_18_scielo_year_volume.tsv')
