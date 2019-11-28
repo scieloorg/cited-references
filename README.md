@@ -176,7 +176,7 @@ File string_processor.py contains the class StringProcessor, which has four meth
 
 ## Scrappers
 
-These are the scripts responsible for collecting data from several indexes databases. The purpose is to gain information related to he name and abreviated name of journals
+These are the scripts responsible for collecting data from several indexes databases. The main purpose is to obtain information related to the name and abreviated name of journals. Another object is to obtain information with regard to the values of year and volume of journals. 
 
 ### Latindex
 
@@ -185,7 +185,15 @@ These are the scripts responsible for collecting data from several indexes datab
     $ ./scrapper/latindex.py collect # to collect data
     $ ./scrapper/latindex.py parse # to parse data to a csv file
 
-### WebOfScience
+
+### Locator Plus
+**How to use**
+
+    $ ./scrapper/locator_plus.py collect FILE_NLM_TITLES # to collect data related to NLM names inse FILE_NLM_TITLES
+    $ ./scrapper/locator_plus.py parse DIR_HTMLS # to parse html files inside DIR_HTMLS folder to a comma-separated-value file
+
+
+### Web of Science
 
 **How to use**
 
