@@ -141,8 +141,10 @@ def _clean_recent_issues(recent_issues: list):
 
 def _normalize_issn(issn: str):
     for i in ISSN_NORMALIZING_LIST:
-        issn = issn.replace(i, '')
-    return issn.strip()
+        issn = issn.replace(i, '').strip()
+    if '-' not in issn and len(issn) == 8:
+        return issn[:4] + '-' + issn[4:]
+    return issn
 
 
 def parse_html(html: str):
@@ -219,7 +221,7 @@ def read_nlm_titles(file_nlm_titles: str):
 
 if __name__ == '__main__':
     # a list to be used to normalizing a issn code
-    ISSN_NORMALIZING_LIST = ['-', '(PRINT)', '( PRINT)', '(ELECTRONIC)', '(CDROM)', '(ONLINE)', '(OTHER)']
+    ISSN_NORMALIZING_LIST = ['(PRINT)', '( PRINT)', '(ELECTRONIC)', '(CDROM)', '(ONLINE)', '(OTHER)']
 
     # mode of execution (collect or parse)
     MODE = sys.argv[1]
