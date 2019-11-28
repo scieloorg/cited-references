@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import sys
 from util.string_processor import StringProcessor
 
 
@@ -80,14 +81,19 @@ def get_cited_forms_with_metadata(path_crossref, doi2cited_form: dict):
     return cited_forms_with_metadata
 
 
-def get_scielo_data(path_scielo):
-    scielo_results = set()
-    file_scielo = open(path_scielo)
-    line = file_scielo.readline()
+def read_normalized_data(path_data):
+    """
+    Read data in the normalized format ISSN|TITLE|YEAR|VOLUME|NUMBER
+    :param path_data: path of the normalized data
+    :return: a set of the results
+    """
+    results = set()
+    file_data = open(path_data)
+    line = file_data.readline()
     while line:
-        scielo_results.add(line)
-        line = file_scielo.readline()
-    return scielo_results
+        results.add(line.strip())
+        line = file_data.readline()
+    return results
 
 
 def get_wos_si_source_data(path_wos_si_source):
@@ -119,22 +125,26 @@ def get_wos_si_source_data(path_wos_si_source):
 
 
 if __name__ == '__main__':
-    PATH_FILE_REFS_WOS_DOI = 'refs_wos_doi.txt'
-    PATH_FILE_CROSSREF_RESULTS = 'crossref_results.json'
-    PATH_FILE_WOS_SI_SOURCE = 'WoS-refs_SIsource_ISSN.txt'
-    PATH_FILE_SCIELO = 'scielo_year_volume.tsv'
-    PATH_FILE_RESULTS = 'base_year_volume.csv'
+    BASE_DIR = sys.argv[1]
+    PATH_FILE_REFS_WOS_DOI = BASE_DIR + '/refs_wos_doi.txt'
+    PATH_FILE_CROSSREF_RESULTS = BASE_DIR + '/crossref_results.json'
+    PATH_FILE_WOS_SI_SOURCE = BASE_DIR + '/WoS-refs_SIsource_ISSN.txt'
+    PATH_FILE_SCIELO = BASE_DIR + '/scielo_year_volume.tsv'
+    PATH_FILE_LOCATOR_PLUS = BASE_DIR + 'locator_plus.csv'
+    PATH_FILE_RESULTS = BASE_DIR + '/base_year_volume.csv'
 
     doi2cited_form = get_doi2cited_form_dict(PATH_FILE_REFS_WOS_DOI)
 
     crossref_data = get_cited_forms_with_metadata(PATH_FILE_CROSSREF_RESULTS, doi2cited_form)
     wos_data = get_wos_si_source_data(PATH_FILE_WOS_SI_SOURCE)
-    scielo_data = get_scielo_data(PATH_FILE_SCIELO)
+    scielo_data = read_normalized_data(PATH_FILE_SCIELO)
+    locator_plus_data = read_normalized_data(PATH_FILE_LOCATOR_PLUS)
 
-    cross_and_wos_data = crossref_data.union(wos_data)
-    merged_data = cross_and_wos_data.union(scielo_data)
+    d1 = crossref_data.union(wos_data)
+    d2 = d1.union(scielo_data)
+    d3 = d2.union(locator_plus_data)
 
     file_results = open(PATH_FILE_RESULTS, 'w')
-    for c in sorted(merged_data):
+    for c in sorted(d3):
         file_results.write(c + '\n')
     file_results.close()
