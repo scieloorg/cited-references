@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+import sys
+
+
 def count_titles_not_matched(ms, s=50):
     for i in sorted(ms, key=lambda x: int(x[1].strip()), reverse=True)[:s]:
         print(i[1].strip(), i[0], sep='\t')
@@ -117,25 +121,26 @@ def read_match_data(path_match_data):
 
 
 if __name__ == '__main__':
-    FILE_MATCH = '/home/rafael/Working/cited-references/util/matches/1572731217943/matches.tsv'
-    FILE_ISSNS_MATCHED = '/home/rafael/Working/cited-references/util/matches/1572731217943/issns_matched.tsv'
-    FILE_TITLES_NOT_MATCHED = '/home/rafael/Working/cited-references/util/matches/1572731217943/titles_not_matched.tsv'
-    FILE_ALL_TITLES = '/home/rafael/Working/cited-references/util/matches/1572731217943/all_titles.tsv'
-    FILE_HOMONYMOUS_DESAMBIGUATED = '/home/rafael/Working/cited-references/util/matches_secondary/1572916410561/homonymous_disambiguated.tsv'
+    BASE_DIR = sys.argv[1]
+    FILE_MATCH = BASE_DIR + 'matches.tsv'
+    FILE_ISSNS_MATCHED = BASE_DIR + 'issns_matched.tsv'
+    FILE_TITLES_NOT_MATCHED = BASE_DIR + 'titles_not_matched.tsv'
+    FILE_ALL_TITLES = BASE_DIR + 'all_titles.tsv'
+    FILE_HOMONYMOUS_DESAMBIGUATED = BASE_DIR + 'homonymous_disambiguated.tsv'
 
-    # matches = read_match_data(FILE_MATCH)
-    # count_match_by_n_col(matches)
-    # count_issnl_by_citations(matches, 50)
+    matches = read_match_data(FILE_MATCH)
+    count_match_by_n_col(matches)
+    count_issnl_by_citations(matches, 50)
 
-    # issns_matches = read_match_data(FILE_ISSNS_MATCHED)
-    # for i in range(2, 5):
-    #     print('---- N = %s' % str(i))
-    #     count_citations_by_title_with_n_issnls(issns_matches, i)
-    #     print('')
-    # count_citations_by_title_with_at_least_n_issnls(issns_matches, 5)
+    issns_matches = read_match_data(FILE_ISSNS_MATCHED)
+    for i in range(2, 5):
+        print('---- N = %s' % str(i))
+        count_citations_by_title_with_n_issnls(issns_matches, i)
+        print('')
+    count_citations_by_title_with_at_least_n_issnls(issns_matches, 5)
 
-    # titles_not_matched = read_match_data(FILE_TITLES_NOT_MATCHED)
-    # count_titles_not_matched(titles_not_matched, 50)
+    titles_not_matched = read_match_data(FILE_TITLES_NOT_MATCHED)
+    count_titles_not_matched(titles_not_matched, 50)
 
     homonymous_fixed = read_match_data(FILE_HOMONYMOUS_DESAMBIGUATED)
     count_desambiguations_by_n_col(homonymous_fixed)
