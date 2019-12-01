@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import asyncio
-from multiprocessing.pool import Pool
 
 import bs4
 import itertools
