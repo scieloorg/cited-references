@@ -68,6 +68,9 @@ def get_cited_forms_with_metadata(path_crossref, doi2cited_form: dict):
 
                 for cit in cited_forms:
                     if print_issn != '' and cit != '' and print_year != '' and volume != '':
+                        # in some cases the volume value is composed of two numbers separated by a hyphen
+                        if '-' in volume:
+                            volume = volume.split('-')[0]
                         metadata_print_str = '|'.join([print_issn, cit, print_year, volume, issue])
                         cited_forms_with_metadata.add(metadata_print_str)
                     if online_issn != '' and cit != '' and online_year != '' and volume != '':
