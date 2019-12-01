@@ -221,7 +221,7 @@ def read_nlm_titles(file_nlm_titles: str):
 
 if __name__ == '__main__':
     # a list to be used to normalizing a issn code
-    ISSN_NORMALIZING_LIST = ['(PRINT)', '( PRINT)', '(ELECTRONIC)', '(CDROM)', '(ONLINE)', '(OTHER)']
+    ISSN_NORMALIZING_LIST = ['(PRINT)', '( PRINT)', '(ELECTRONIC)', '(CDROM)', '(CD-ROM)', '(ONLINE)', '(OTHER)']
 
     # mode of execution (collect or parse)
     MODE = sys.argv[1]
