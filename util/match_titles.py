@@ -2,30 +2,38 @@
 import datetime
 import os
 import sys
+sys.path.append(os.getcwd())
 
 from pymongo import MongoClient
 from util.string_processor import StringProcessor
 from xylose.scielodocument import Citation
 
 
-if __name__ == '__main__':
-    db_name = sys.argv[1]
-    file_main_base = sys.argv[2]
-    file_secondary_base = sys.argv[3]
-    file_main_base_issn2issnl = sys.argv[4]
+def exact_match():
+    pass
 
-    refdb = MongoClient()[db_name]
 
-    main_base = [i.split('|') for i in open(file_main_base)]
+def fuzzy_match():
+    pass
+
+
+def load_title2issnl_base(path_title2issnl_base: str):
+    print('loading title2issnl base')
+    base_title2issnl = [i.split('|') for i in open(path_title2issnl_base)]
     title2issnl = {}
-    for r in main_base[1:]:
+    for r in base_title2issnl[1:]:
         title = r[0].strip()
         issnls = r[1].strip()
         title2issnl[title] = issnls
+    del base_title2issnl
+    return title2issnl
 
-    main_base_issn2issnl = [i.split('|') for i in open(file_main_base_issn2issnl)]
+
+def load_issnl2all_base(path_issnl2all_base: str):
+    print('loading issnl2all base')
+    base_issnl2all = [i.split('|') for i in open(path_issnl2all_base)]
     issn2issnl = {}
-    for r in main_base_issn2issnl[1:]:
+    for r in base_issnl2all[1:]:
         issns = r[1].split('#')
         issnl = r[0]
         for i in issns:
@@ -34,10 +42,15 @@ if __name__ == '__main__':
             else:
                 if issn2issnl[i] != issnl:
                     print('ERROR: values (issnls) %s != %s for key (issn) %s' % (issnl, issn2issnl[i], i))
+    del base_issnl2all
+    return issn2issnl
 
-    secondary_base = [i.split('|') for i in open(file_secondary_base)]
+
+def load_year_volume_base(path_year_volume_base: str):
+    print('loading year_volume_base')
+    year_volume_base = [i.split('|') for i in open(path_year_volume_base)]
     title_year_volume2issn = {}
-    for r in secondary_base:
+    for r in year_volume_base:
         title = r[1].strip()
         issn = r[0].strip().replace('-', '')
         normalized_issn = issn2issnl.get(issn, '')
@@ -50,19 +63,44 @@ if __name__ == '__main__':
             title_year_volume2issn[mkey] = {normalized_issn}
         else:
             title_year_volume2issn[mkey].add(normalized_issn)
+    del year_volume_base
+    return title_year_volume2issn
 
-    matches_folder = '/'.join(['matches_secondary', str(round(datetime.datetime.utcnow().timestamp()*1000))])
+
+if __name__ == '__main__':
+
+    # local database name
+    db_name = sys.argv[1]
+
+    # paths of the correctional base files
+    path_title2issnl_base = sys.argv[2]
+    path_issnl2all_base = sys.argv[3]
+    path_year_volume_base = sys.argv[4]
+
+    # load data files to dictionaries
+    title2issnl = load_title2issnl_base(path_title2issnl_base)
+    issn2issnl = load_issnl2all_base(path_issnl2all_base)
+    title_year_volume2issn = load_year_volume_base(path_year_volume_base)
+
+    # create folder where the results will be saved
+    matches_folder = '/'.join(['matches', str(round(datetime.datetime.utcnow().timestamp()*1000))])
     os.makedirs(matches_folder)
 
+    # create results files
     results = open(matches_folder + '/matches.tsv', 'w')
     results_titles = open(matches_folder + '/all_titles.tsv', 'w')
     results_issns_matched = open(matches_folder + '/issns_matched.tsv', 'w')
     results_titles_not_matched = open(matches_folder + '/titles_not_matched.tsv', 'w')
     results_b2sec_desambiguated = open(matches_folder + '/homonymous_disambiguated.tsv', 'w')
 
+    # create dictionarires where the results will be added
     titles = {}
     titles_matched = {}
     titles_not_matched = {}
+
+    # access local references' database
+    refdb = MongoClient()[db_name]
+
     for col in refdb.list_collection_names():
         print('\nStart %s' % col)
         num_articles = 0
