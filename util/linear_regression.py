@@ -91,7 +91,7 @@ def generate_equation(year_volume_str: list):
             a = calculate_a(b, year_s, volume_s)
             r2 = calculate_error(a, b, year_s, volume_s)
             if r2 != '':
-                return '%.2f|%.2f|%.2f' % (a, b, r2)
+                return '%.6f|%.6f|%.6f' % (a, b, r2)
 
 
 if __name__ == '__main__':
@@ -108,7 +108,7 @@ if __name__ == '__main__':
         if issn_equation:
             result_issn_equations.write('|'.join([issn, issn_equation]) + '\n')
     result_issn_equations.close()
-
+    
     result_title_equations = open('equations_title.csv', 'w')
     result_title_equations.write('|'.join(['TITLE', 'a', 'b', 'r2']) + '\n')
     for title, v in title2yv.items():
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         if title_equation:
             result_title_equations.write('|'.join([title, title_equation]) + '\n')
     result_title_equations.close()
-
+    
     result_il_equations = open('equations_issnl.csv', 'w')
     result_il_equations.write('|'.join(['ISSN-L', 'a', 'b', 'r2']) + '\n')
     for il, v in il2yv.items():
