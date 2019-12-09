@@ -116,6 +116,9 @@ if __name__ == '__main__':
     path_issnl2all_base = sys.argv[3]
     path_year_volume_base = sys.argv[4]
 
+    # mode of execution
+    mode = sys.argv[5]
+
     # load data files to dictionaries
     title2issnl = load_title2issnl_base(path_title2issnl_base)
     issn2issnl, issn2titles = load_issnl2all_base(path_issnl2all_base)
@@ -132,6 +135,7 @@ if __name__ == '__main__':
     results_titles_not_matched = open(matches_folder + '/titles_not_matched.tsv', 'w')
     results_b2sec_desambiguated = open(matches_folder + '/homonymous_disambiguated.tsv', 'w')
     results_fuzzy_matches = open(matches_folder + '/fuzzy.tsv', 'w')
+    results_fuzzy_todo = open(matches_folder + '/fuzzy_todo.tsv', 'w')
 
     # create dictionarires where the results will be added
     TITLES = {}
@@ -141,12 +145,11 @@ if __name__ == '__main__':
     # access local references' database
     refdb = MongoClient()[db_name]
 
-    # for col in refdb.list_collection_names():
-    for col in sorted(refdb.list_collection_names())[int(sys.argv[5]): int(sys.argv[6])]:
+    for col in refdb.list_collection_names():
         print('\nStart %s' % col)
         num_articles = 0
         num_all = 0
-        for cjson in refdb[col].find({}).sort('_id')[int(sys.argv[7]): int(sys.argv[8])].batch_size(40):
+        for cjson in refdb[col].find({}):
             cit = Citation(cjson)
             if cit.source:
                 if cit.publication_type == 'article':
@@ -191,13 +194,21 @@ if __name__ == '__main__':
                                         results_b2sec_desambiguated.write('\t'.join(res_line + [cit_mkey] + ['#'.join(multiple_issnl), str(len(multiple_issnl))]) + '\n')
 
                     else:
-                        # fuzzy match
-                        if cit_volume is not None and cit_volume != '' and cit_year is not None and cit_year != '':
-                            fmatches = fuzzy_match(cit_title_preprocessed)
-                            if len(fmatches) > 0:
-                                fres = [col, cit.data.get('_id'), cit_title_preprocessed, cit_year, cit_volume, '#'.join(fmatches), str(len(fmatches))]
-                                result_line = '|'.join(fres)
-                                results_fuzzy_matches.write(result_line + '\n')
+                        if mode == 'fuzzy':
+                            # fuzzy match
+                            if cit_volume is not None and cit_volume != '' and cit_year is not None and cit_year != '':
+                                fmatches = fuzzy_match(cit_title_preprocessed)
+                                if len(fmatches) > 0:
+                                    fres = [col, cit.data.get('_id'), cit_title_preprocessed, cit_year, cit_volume, '#'.join(fmatches), str(len(fmatches))]
+                                    result_line = '|'.join(fres)
+                                    results_fuzzy_matches.write(result_line + '\n')
+                        else:
+                            if not cit_year:
+                                cit_year = ''
+                            if not cit_volume:
+                                cit_volume = ''
+                            ftodo = '|'.join([col, cit.data.get('_id'), cit_title_preprocessed, cit_year, cit_volume])
+                            results_fuzzy_todo.write(ftodo + '\n')
                         # no match
                         if cit_title_preprocessed not in TITLES_UNMATCHED:
                             TITLES_UNMATCHED[cit_title_preprocessed] = 1
