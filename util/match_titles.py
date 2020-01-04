@@ -149,6 +149,7 @@ if __name__ == '__main__':
         print('\nStart %s' % col)
         num_articles = 0
         num_all = 0
+        # for cjson in refdb[col].find({}).batch_size(40)[int(sys.argv[6]):int(sys.argv[7])]:
         for cjson in refdb[col].find({}):
             cit = Citation(cjson)
             if cit.source:

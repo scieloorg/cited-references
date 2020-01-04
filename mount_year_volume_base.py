@@ -99,7 +99,7 @@ def read_normalized_data(path_data):
     return results
 
 
-def get_wos_si_source_data(path_wos_si_source):
+def get_wos_si_source_data(path_wos_si_source, ignore_extra_lines=True):
     file_wos_si_source = open(path_wos_si_source)
     line = file_wos_si_source.readline()
     cited_forms_with_metadata = set()
@@ -112,42 +112,48 @@ def get_wos_si_source_data(path_wos_si_source):
             cited_form_1 = StringProcessor.preprocess_journal_title(els[1].strip()).upper()
             year = els[2]
             volume = els[3]
-            cited_form_2 = StringProcessor.preprocess_journal_title(els[4].strip()).upper()
+            if not ignore_extra_lines:
+                cited_form_2 = StringProcessor.preprocess_journal_title(els[4].strip()).upper()
 
             if issn != '' and year != '' and volume != '':
                 if cited_form_1 != '':
                     metadata_str_1 = '|'.join([issn, cited_form_1, year, volume, ''])
                     cited_forms_with_metadata.add(metadata_str_1)
-                if cited_form_2 != '':
-                    metadata_str_2 = '|'.join([issn, cited_form_2, year, volume, ''])
-                    cited_forms_with_metadata.add(metadata_str_2)
+                if not ignore_extra_lines:
+                    if cited_form_2 != '':
+                        metadata_str_2 = '|'.join([issn, cited_form_2, year, volume, ''])
+                        cited_forms_with_metadata.add(metadata_str_2)
 
         line = file_wos_si_source.readline()
     file_wos_si_source.close()
     return cited_forms_with_metadata
 
 
-if __name__ == '__main__':
-    BASE_DIR = sys.argv[1]
-    PATH_FILE_REFS_WOS_DOI = BASE_DIR + '/refs_wos_doi.txt'
-    PATH_FILE_CROSSREF_RESULTS = BASE_DIR + '/crossref_results.json'
-    PATH_FILE_WOS_SI_SOURCE = BASE_DIR + '/WoS-refs_SIsource_ISSN.txt'
-    PATH_FILE_SCIELO = BASE_DIR + '/scielo_year_volume.tsv'
-    PATH_FILE_LOCATOR_PLUS = BASE_DIR + 'locator_plus.csv'
-    PATH_FILE_RESULTS = BASE_DIR + '/base_year_volume.csv'
+def main():
+    path_base_dir = sys.argv[1]
+    path_file_refs_wos_doi = path_base_dir + '/refs_wos_doi.txt'
+    path_file_crossref_results = path_base_dir + '/crossref_results.json'
+    path_file_wos_si_source = path_base_dir + '/WoS-refs_SIsource_ISSN.txt'
+    path_file_scielo = path_base_dir + '/scielo_year_volume.tsv'
+    path_file_locator_plus = path_base_dir + '/locator_plus.csv'
+    path_file_results = path_base_dir + '/base_year_volume.csv'
 
-    doi2cited_form = get_doi2cited_form_dict(PATH_FILE_REFS_WOS_DOI)
+    doi2cited_form = get_doi2cited_form_dict(path_file_refs_wos_doi)
 
-    crossref_data = get_cited_forms_with_metadata(PATH_FILE_CROSSREF_RESULTS, doi2cited_form)
-    wos_data = get_wos_si_source_data(PATH_FILE_WOS_SI_SOURCE)
-    scielo_data = read_normalized_data(PATH_FILE_SCIELO)
-    locator_plus_data = read_normalized_data(PATH_FILE_LOCATOR_PLUS)
+    crossref_data = get_cited_forms_with_metadata(path_file_crossref_results, doi2cited_form)
+    wos_data = get_wos_si_source_data(path_file_wos_si_source)
+    scielo_data = read_normalized_data(path_file_scielo)
+    locator_plus_data = read_normalized_data(path_file_locator_plus)
 
     d1 = crossref_data.union(wos_data)
     d2 = d1.union(scielo_data)
     d3 = d2.union(locator_plus_data)
 
-    file_results = open(PATH_FILE_RESULTS, 'w')
+    file_results = open(path_file_results, 'w')
     for c in sorted(d3):
         file_results.write(c + '\n')
     file_results.close()
+
+
+if __name__ == '__main__':
+    main()
