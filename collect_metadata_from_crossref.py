@@ -176,10 +176,10 @@ def get_references_with_doi(ref_db_collection):
 if __name__ == "__main__":
     DEFAULT_MODE = sys.argv[1]
 
-    if DEFAULT_MODE == '':
-        REFERENCES_DATA_BASE_NAME = sys.argv[1]
-        EMAIL = sys.argv[2]
-        STATUS_MODE = sys.argv[3]
+    if DEFAULT_MODE == 'default':
+        REFERENCES_DATA_BASE_NAME = sys.argv[2]
+        EMAIL = sys.argv[3]
+        STATUS_MODE = sys.argv[4]
 
         SEMAPHORE_LIMIT = 10
 
