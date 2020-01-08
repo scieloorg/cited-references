@@ -77,9 +77,9 @@ def save_into_local_database(json_document, col, pid):
         if not local_database[col].find_one({'_id': pid}):
             local_database[col].insert_one(json_document)
         else:
-            print('%s,%s is already in the local database' % (col, pid))
+            print('col %s pid %s is already in the local database' % (col, pid))
     else:
-        print('Could not collect col,pid %s,%s ' % (col, pid))
+        print('Could not collect col %s pid %s ' % (col, pid))
     
 
 if __name__ == "__main__":
