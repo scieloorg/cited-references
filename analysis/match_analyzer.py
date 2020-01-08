@@ -114,7 +114,7 @@ def read_match_data(path_match_data):
     splitted_lines = []
     fs = open(path_match_data)
     for i in fs:
-        spi = i.split('\t')
+        spi = i.strip().split('\t')
         splitted_lines.append(spi)
     fs.close()
     return splitted_lines
