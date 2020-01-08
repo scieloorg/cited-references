@@ -47,12 +47,11 @@ def worker(data):
 if __name__ == '__main__':
     title2issnl = load_title2issnl_base(sys.argv[1])
     to_process = [l.strip().split('|') for l in open(sys.argv[2])]
-    to_process_scielo = [t for t in to_process if t[0] == 'scl']
 
     matches_folder = '/'.join(['matches', str(round(datetime.datetime.utcnow().timestamp() * 1000))])
     os.makedirs(matches_folder)
     results_fuzzy_matches = open(matches_folder + '/fuzzy.tsv', 'w')
 
     with mp.Pool(mp.cpu_count()) as p:
-        results = p.map(worker, to_process_scielo)
+        results = p.map(worker, to_process)
     results_fuzzy_matches.close()
