@@ -99,7 +99,7 @@ def read_normalized_data(path_data):
     return results
 
 
-def get_wos_si_source_data(path_wos_si_source, ignore_extra_lines=True):
+def get_wos_si_source_data(path_wos_si_source, ignore_extra_cols=True):
     file_wos_si_source = open(path_wos_si_source)
     line = file_wos_si_source.readline()
     cited_forms_with_metadata = set()
@@ -112,14 +112,14 @@ def get_wos_si_source_data(path_wos_si_source, ignore_extra_lines=True):
             cited_form_1 = StringProcessor.preprocess_journal_title(els[1].strip()).upper()
             year = els[2]
             volume = els[3]
-            if not ignore_extra_lines:
+            if not ignore_extra_cols:
                 cited_form_2 = StringProcessor.preprocess_journal_title(els[4].strip()).upper()
 
             if issn != '' and year != '' and volume != '':
                 if cited_form_1 != '':
                     metadata_str_1 = '|'.join([issn, cited_form_1, year, volume, ''])
                     cited_forms_with_metadata.add(metadata_str_1)
-                if not ignore_extra_lines:
+                if not ignore_extra_cols:
                     if cited_form_2 != '':
                         metadata_str_2 = '|'.join([issn, cited_form_2, year, volume, ''])
                         cited_forms_with_metadata.add(metadata_str_2)
