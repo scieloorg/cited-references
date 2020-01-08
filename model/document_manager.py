@@ -41,7 +41,7 @@ class DocumentManager(object):
         else:
             first_author_surname = ''
 
-        publication_date = xydoc.publication_date
+        publication_date = xydoc.document_publication_date
         journal_title = StringProcessor.preprocess_journal_title(xydoc.journal.title.lower())
         journal_abbrev_title = StringProcessor.preprocess_journal_title(xydoc.journal.abbreviated_title.lower())
 
