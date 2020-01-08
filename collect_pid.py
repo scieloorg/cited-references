@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+from time import sleep
+
 import requests
 import sys
 
 from datetime import date
+from json.decoder import JSONDecodeError
 
 
 def save_results_to_csv(objects: {}, path_csv):
@@ -30,23 +33,40 @@ if __name__ == "__main__":
     else:
         from_date = date.today().strftime('%Y-%m-%d')
 
-    COLLECTIONS = ['arg', 'bol ', 'chl ', 'col ', 'cri', 'cub', 'esp', 'mex', 'per', 'prt', 'rve', 'scl', 'psi', 'spa', 'sss', 'sza', 'ury', 'ven']
+    COLLECTIONS = ['arg', 'bio', 'bol', 'cci', 'chl', 'cic', 'col', 'cri', 'cub', 'ecu', 'edc', 'esp', 'inv', 'mex', 'pef', 'per', 'ppg', 'pro', 'prt', 'pry', 'psi', 'rve', 'rvo', 'rvt', 'scl', 'ses', 'spa', 'sss', 'sza', 'ury', 'ven', 'wid']
     ARTICLEMETA_URL = 'http://articlemeta.scielo.org'
     ARTICLE_ENDPOINT = '/api/v1/article'
     PATH_CSV = 'new-pids-from-' + from_date + '.csv'
 
     for c in COLLECTIONS:
+        print('COLLECTION %s' % c)
         url = ARTICLEMETA_URL + ARTICLE_ENDPOINT + '/identifiers' + '/?collection=' + c
         if from_date:
-            url += '&from=' + from_date
+            url = url + '&from=' + from_date
 
-        results = requests.get(url).json()
+        print(url)
+        main_response = requests.get(url)
+        results = main_response.json()
         save_results_to_csv(results.get('objects'), PATH_CSV)
 
         total = int(results.get('meta').get('total'))
         
         if total > 1000:
             for o in range(1000, total, 1000):
+                tries = 1
                 offset_url = url + '&offset=' + str(o)
-                offset_results = requests.get(offset_url).json()
-                save_results_to_csv(offset_results.get('objects'), PATH_CSV)
+                try:
+                    response = requests.get(offset_url)
+                    while response.status_code != 200 and tries <= 5:
+                        response = requests.get(offset_url)
+                        print('TRY %d' % tries)
+                        tries += 1
+                        sleep(5)
+
+                    if response.status_code == 200:
+                        offset_results = response.json()
+                        save_results_to_csv(offset_results.get('objects'), PATH_CSV)
+                    else:
+                        print('URL NOT FOUND %s ' % offset_url)
+                except JSONDecodeError as jde:
+                    print(jde)
