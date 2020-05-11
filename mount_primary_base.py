@@ -19,7 +19,7 @@ BASE2COLUMN_INDEXES = {
         },
         'latindex': {
             'issn': [0],
-            'title': [2, 4, 5],
+            'title': [2, 5],
             'sep': '\t',
             'country': 3,
         },
