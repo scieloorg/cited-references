@@ -19,7 +19,7 @@ BASE2COLUMN_INDEXES = {
         },
         'latindex': {
             'issn': [0],
-            'title': [2, 5],
+            'title': [4, 5],
             'sep': '\t',
             'country': 3,
         },
@@ -430,7 +430,7 @@ def save_bases(merged_bases):
     Save the merged bases into the disk
     :param merged_bases: a dictionary representing a merged base
     """
-    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.4.csv', 'w')
+    final_base = open(DEFAULT_DIR_INDEXES + '../base_issnl2all_v0.5.csv', 'w')
 
     base_header = '|'.join(['ISSNL', 'ISSNs', 'MAIN_TITLE', 'MAIN_ABBREV_TITLE', 'OTHER_TITLEs', 'PORTAL_ISSN', 'DOAJ', 'LATINDEX', 'NLM', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS'])
     base_header_size = len(base_header.split('|'))
@@ -456,7 +456,7 @@ def save_bases(merged_bases):
         final_base.write(base_register + '\n')
     final_base.close()
 
-    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_titulo2issnl_v0.4.csv', 'w')
+    final_title2issnl = open(DEFAULT_DIR_INDEXES + '../base_title2issnl_v0.5.csv', 'w')
 
     title_base_header = '|'.join(['TITLE', 'ISSNLs', 'PORTAL_ISSN', 'DOAJ', 'LATINDEX', 'NLM', 'SCIELO', 'SCIMAGO_JR', 'SCOPUS', 'ULRICH', 'WOS', 'WOS_JCR', 'COUNTRIES', 'YEARS'])
     title_base_header_size = len(title_base_header.split('|'))
@@ -499,14 +499,12 @@ def save_bases(merged_bases):
 if __name__ == '__main__':
     logging.basicConfig(filename='merge_indexes.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    # if len(sys.argv) == 2:
-    #     DEFAULT_DIR_INDEXES = sys.argv[1]
-    #
-    # if len(sys.argv) == 3:
-    #     DEFAULT_DIR_INDEXES = sys.argv[1]
-    #     DEFAULT_MODE = sys.argv[2]
+    if len(sys.argv) == 2:
+        DEFAULT_DIR_INDEXES = sys.argv[1]
 
-    DEFAULT_DIR_INDEXES = '/home/rafael/Temp/scielo/bases/limpas/v0.4/'
+    if len(sys.argv) == 3:
+        DEFAULT_DIR_INDEXES = sys.argv[1]
+        DEFAULT_MODE = sys.argv[2]
 
     issn2issnl = mount_issn2issnl_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
     issnl2country = mount_issnl2country_dict(DEFAULT_DIR_INDEXES + 'portal_issn.csv')
@@ -518,8 +516,8 @@ if __name__ == '__main__':
         bases = []
         for b in bases_names:
             bases.append(read_base(b, issn2issnl))
-        # merged_bases = merge_bases(bases)
-        # save_bases(merged_bases)
+        merged_bases = merge_bases(bases)
+        save_bases(merged_bases)
     elif DEFAULT_MODE == 'count-char':
         titles = []
         for b in bases_names:
