@@ -15,6 +15,6 @@ requests==2.22.0
 selenium==3.141.0
 soupsieve==1.9.3
 thriftpy2==0.4.5
-urllib3==1.25.3
+urllib3==1.25.8
 xylose==1.35.4
 yarl==1.2.0
