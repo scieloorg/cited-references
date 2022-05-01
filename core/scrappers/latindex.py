@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
+import argparse
 import asyncio
 import os
-import sys
 
 from aiohttp import ClientSession
-from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError
-from asyncio import TimeoutError
+from aiohttp.client_exceptions import ContentTypeError, ServerDisconnectedError, ClientPayloadError
+from asyncio.exceptions import TimeoutError
 from multiprocessing.pool import Pool
-from multiprocessing import cpu_count
 from bs4 import BeautifulSoup
 
 
@@ -15,11 +13,11 @@ PROFILE_URL = 'https://www.latindex.org/latindex/ficha?folio={profile_id}'
 
 DEFAULT_DIR_CSV = 'data/latindex/'
 DEFAULT_DIR_HTML = 'data/latindex/html/'
-DEFAULT_MAX_ATTEMPTS = 5
-DEFAULT_MAX_PROFILE_ID = 29000
-DEFAULT_MODE = 'collect'
-DEFAULT_NUM_THREADS = cpu_count() - 1
-DEFAULT_SEMAPHORE_LIMIT = 10
+DEFAULT_MAX_ATTEMPTS = 10
+START_PROFILE_ID = 0
+DEFAULT_MAX_PROFILE_ID = 35000
+DEFAULT_NUM_THREADS = 3
+DEFAULT_SEMAPHORE_LIMIT = 5
 
 
 def html2dict(path_html_file: str):
@@ -92,6 +90,7 @@ def save_html_file(path_html_file: str, response):
     html_file = open(path_html_file, 'w')
     html_file.writelines(response)
     html_file.close()
+    print('arquivo %s coletado' % path_html_file)
 
 
 async def fetch(url, profile_id, session):
@@ -116,6 +115,8 @@ async def fetch(url, profile_id, session):
             print('TimeoutError', url)
         except ContentTypeError:
             print('ContentTypeError', url)
+        except ClientPayloadError:
+            print('ClientPayloadError', url)
 
 
 async def bound_fetch(sem, url, profile_id, session):
@@ -139,28 +140,38 @@ async def run():
     tasks = []
 
     async with ClientSession() as session:
-        for profile_id in range(DEFAULT_MAX_PROFILE_ID):
+        for profile_id in range(START_PROFILE_ID, DEFAULT_MAX_PROFILE_ID):
             task = asyncio.ensure_future(bound_fetch(sem, url, profile_id, session))
             tasks.append(task)
         responses = asyncio.gather(*tasks)
         await responses
 
 
-if __name__ == "__main__":
-    DEFAULT_MODE = sys.argv[1]
+def _detect_last_id(directory_html):
+    files = [f for f in os.listdir(directory_html) if f.endswith('.html')]
+    return max([int(f.split('.')[0]) for f in files])
 
-    if len(sys.argv) != 2:
-        print('Error: enter execution mode [collect, parse]')
-        sys.exit(1)
 
-    if DEFAULT_MODE == 'collect':
-        os.makedirs(DEFAULT_DIR_CSV)
-        os.makedirs(DEFAULT_DIR_HTML)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', choices=['collect', 'parse'], required=True)
+
+    args = parser.parse_args()
+
+    if args.mode == 'collect':
+        if os.path.exists(DEFAULT_DIR_HTML):
+            global START_PROFILE_ID
+            START_PROFILE_ID = _detect_last_id(DEFAULT_DIR_HTML) + 1
+            print('START_PROFILE_ID %d' % START_PROFILE_ID)
+        else:
+            os.makedirs(DEFAULT_DIR_CSV)
+            os.makedirs(DEFAULT_DIR_HTML)
 
         loop = asyncio.get_event_loop()
         future = asyncio.ensure_future(run())
         loop.run_until_complete(future)
-    elif DEFAULT_MODE == 'parse':
+
+    if args.mode == 'parse':
         htmls = [f for f in os.listdir(DEFAULT_DIR_HTML) if f.endswith('.html')]
         with Pool(DEFAULT_NUM_THREADS) as p:
             id2data = p.map(html2dict, htmls)

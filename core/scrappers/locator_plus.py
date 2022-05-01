@@ -6,7 +6,7 @@ import requests
 import sys
 sys.path.append(os.getcwd())
 
-from util.string_processor import StringProcessor
+from core.utils.string_processor import StringProcessor
 
 
 def get_html(title: str):
