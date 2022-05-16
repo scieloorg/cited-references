@@ -7,6 +7,9 @@ from core.util import file
 from core.model.citation import Citation
 
 
+MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '3'))
+
+
 def fuzzy_match(title: str, data: dict, standardize=False):
     words = title.split(' ')
 
