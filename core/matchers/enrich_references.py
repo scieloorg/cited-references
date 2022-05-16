@@ -5,6 +5,7 @@ import os
 from scielo_scholarly_data import standardizer
 from core.util import file
 from core.model.citation import Citation
+from result_code import *
 
 
 MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '3'))
@@ -166,7 +167,7 @@ def main():
                             if cit.exact_match_issnls_size == 1:
                                 standardized_issn = standardizer.journal_issn(exact_match_issnls[0])
                                 cit.setattr('cited_issnl', standardized_issn)
-                                cit.setattr('result', 'success: exact match occurred through title-issnl correction base')
+                                cit.setattr('result_code', SUCCESS_EXACT_MATCH)
                                 fout.write(cit.to_json() + '\n')
 
                             # Correspondência com mais de um ISSN-L
@@ -188,7 +189,7 @@ def main():
                                                 if yvk_issns[0] in cit.exact_match_issnls:
                                                     standardized_issn = standardizer.journal_issn(yvk_issns[0])
                                                     cit.setattr('cited_issnl', standardized_issn)
-                                                    cit.setattr('result', 'success: exact match occurred with more than one ISSN and it was possible to decide which one is the correct through year-volume correction base')
+                                                    cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL)
                                                     fout.write(cit.to_json() + '\n')
                                                     validated = True
 
@@ -215,17 +216,17 @@ def main():
                                             if list(inferred_yvk_issns)[0] in cit.exact_match_issnls:
                                                 standardized_issn = standardizer.journal_issn(list(inferred_yvk_issns)[0])
                                                 cit.setattr('cited_issnl', standardized_issn)
-                                                cit.setattr('result', 'success: exact match occurred with more than one ISSN and it was possible to decide which one is the correct through year-volume-inferred correction base')
+                                                cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF)
                                                 fout.write(cit.to_json() + '\n')
 
                                         # Não houve desambiguação
                                         else:
-                                            cit.setattr('result', 'error: exact match occurred with more than one ISSN, but it was not possible to decide which one is the correct')
+                                            cit.setattr('result_code', ERROR_EXACT_MATCH_UNDECIDABLE)
                                             fout.write(cit.to_json() + '\n')
 
                                 # Não há dados de ano para fazer desambiguação
                                 else:
-                                    cit.setattr('result', 'error: exact match occurred with more than one ISSN, but it was not possible to decide which one is the correct - cited year is empty or invalid')
+                                    cit.setattr('result_code', ERROR_EXACT_MATCH_INVALID_YEAR)
                                     fout.write(cit.to_json() + '\n')
 
                         # Correspondência inexata
@@ -233,7 +234,7 @@ def main():
                             if params.use_fuzzy:
                                 # Não há dados suficientes para validar uma possível correspondência inexata
                                 if not cited_year_cleaned.isdigit():
-                                    cit.setattr('result', 'error: it was not possible to conduct fuzzy match due to insuficient data - cited year is empty or invalid')
+                                    cit.setattr('result_code', ERROR_FUZZY_MATCH_INVALID_YEAR)
                                     fout.write(cit.to_json() + '\n')
 
                                 else:
@@ -297,34 +298,34 @@ def main():
                                                 if list(fz_inferred_yvk_issns)[0] in cit.fuzzy_match_issnls:
                                                     standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
                                                     cit.setattr('cited_issnl', standardized_issn)
-                                                    cit.setattr('result', 'success: fuzzy match occurred and was validated through year-volume-inferred correction base')
+                                                    cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
                                                     fout.write(cit.to_json() + '\n')
 
                                             # Não houve validação
                                             else:
-                                                cit.setattr('result', 'error: fuzzy match occurred but was not validated')
+                                                cit.setattr('result_code', ERROR_FUZZY_MATCH_UNDECIDABLE)
                                                 fout.write(cit.to_json() + '\n')
 
                                     # Não houve correspondência inexata
                                     else:
-                                        cit.setattr('result', 'error: exact and fuzzy matches did not occur - journal title was not found in the correction bases')
+                                        cit.setattr('result_code', ERROR_JOURNAL_TITLE_NOT_FOUND)
                                         fout.write(cit.to_json() + '\n')
 
                             # Não tentou fazer correspondência
                             else:
-                                cit.setattr('result', 'error: fuzzy matching was not coducted due to parameter indication - inform the parameter use_fuzzy to activate this method')
+                                cit.setattr('result_code', NOT_CONDUCTED_MATCH_FORCED_BY_USER)
                                 fout.write(cit.to_json() + '\n')
 
                     # Caso não haja título de periódico
                     else:
                         # Mas há DOI
                         if hasattr(cit, 'cited_doi') and cit.cited_doi:
-                            cit.setattr('result', 'error: matching was not conducted - get crossref metadata informing the existing doi')
+                            cit.setattr('result_code', NOT_CONDUCTED_MATCH_DOI_EXISTS)
                             fout.write(cit.to_json() + '\n')
 
                         # E não há DOI
                         else:
-                            cit.setattr('result', 'error: it was not possible to match - journal title is empty')
+                            cit.setattr('result_code', ERROR_JOURNAL_TITLE_IS_EMPTY)
                             fout.write(cit.to_json() + '\n')
 
                 line = fin.readline()
