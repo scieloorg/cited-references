@@ -166,7 +166,7 @@ def main():
                             if cit.exact_match_issnls_size == 1:
                                 standardized_issn = standardizer.journal_issn(exact_match_issnls[0])
                                 cit.setattr('cited_issnl', standardized_issn)
-                                cit.setattr('result', 'success: exact match ocurred through title-issnl correction base')
+                                cit.setattr('result', 'success: exact match occurred through title-issnl correction base')
                                 fout.write(cit.to_json() + '\n')
 
                             # Correspondência com mais de um ISSN-L
@@ -220,12 +220,12 @@ def main():
 
                                         # Não houve desambiguação
                                         else:
-                                            cit.setattr('result', 'error: exact match ocurred with more than one ISSN, but it was not possible to decide which one is the correct')
+                                            cit.setattr('result', 'error: exact match occurred with more than one ISSN, but it was not possible to decide which one is the correct')
                                             fout.write(cit.to_json() + '\n')
 
                                 # Não há dados de ano para fazer desambiguação
                                 else:
-                                    cit.setattr('result', 'error: exact match ocurred with more than one ISSN, but it was not possible to decide which one is the correct - cited year is empty or invalid')
+                                    cit.setattr('result', 'error: exact match occurred with more than one ISSN, but it was not possible to decide which one is the correct - cited year is empty or invalid')
                                     fout.write(cit.to_json() + '\n')
 
                         # Correspondência inexata
@@ -302,7 +302,7 @@ def main():
 
                                             # Não houve validação
                                             else:
-                                                cit.setattr('result', 'error: fuzzy match ocurred but was not validated')
+                                                cit.setattr('result', 'error: fuzzy match occurred but was not validated')
                                                 fout.write(cit.to_json() + '\n')
 
                                     # Não houve correspondência inexata
