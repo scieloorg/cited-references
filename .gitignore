@@ -7,3 +7,5 @@ data/*
 Pipfile
 *.tsv
 *.log
+.idea
+*.egg-info
