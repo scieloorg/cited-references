@@ -96,6 +96,13 @@ def main():
         help='Formato de arquivo de entrada'
     )
 
+    parser.add_argument(
+        '--ignore_previous_result',
+        default=False,
+        action='store_true',
+        help='Indica para ignorar cited_issnl pré-existente'
+    )
+
     params = parser.parse_args()
 
     print('Carregando base Title to ISSN-L...')
@@ -124,9 +131,16 @@ def main():
                 cit = Citation(line, format=params.input_format)
 
                 # Caso citação já tenha sido tratada e ISSN-L é válido
-                if 'cited_issnl' in cit.__dict__:
+                if not params.ignore_previous_result and 'cited_issnl' in cit.__dict__:
                     fout.write(cit.to_json() + '\n')
                 else:
+
+                    try:
+                        del cit.result
+                        del cit.result_code
+                        del cit.cited_issnl
+                    except AttributeError:
+                        ...
 
                     # To Do
                     # Caso exista cited_doi, este campo deve ser usado para identificar o ISSN citado
