@@ -184,11 +184,13 @@ def main():
 
                                             # Desambiguou com base secundária
                                             if len(yvk_issns) == 1:
-                                                standardized_issn = standardizer.journal_issn(yvk_issns[0])
-                                                cit.setattr('cited_issnl', standardized_issn)
-                                                cit.setattr('result', 'success: exact match ocurred with more than one ISSN and it was possible to decide which one is the correct through year-volume correction base')
-                                                fout.write(cit.to_json() + '\n')
-                                                validated = True
+                                                # ISSN indicado é um daqueles com dúvida
+                                                if yvk_issns[0] in cit.exact_match_issnls:
+                                                    standardized_issn = standardizer.journal_issn(yvk_issns[0])
+                                                    cit.setattr('cited_issnl', standardized_issn)
+                                                    cit.setattr('result', 'success: exact match occurred with more than one ISSN and it was possible to decide which one is the correct through year-volume correction base')
+                                                    fout.write(cit.to_json() + '\n')
+                                                    validated = True
 
                                     # Não validou, tenta usar volumes inferidos
                                     if not validated:
@@ -209,10 +211,12 @@ def main():
                                                 inferred_yvk_issns = inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
                                         if len(inferred_yvk_issns) == 1:
-                                            standardized_issn = standardizer.journal_issn(list(inferred_yvk_issns)[0])
-                                            cit.setattr('cited_issnl', standardized_issn)
-                                            cit.setattr('result', 'success: exact match ocurred with more than one ISSN and it was possible to decide which one is the correct through year-volume-inferred correction base')
-                                            fout.write(cit.to_json() + '\n')
+                                            # ISSN indicado é um daqueles com dúvida
+                                            if list(inferred_yvk_issns)[0] in cit.exact_match_issnls:
+                                                standardized_issn = standardizer.journal_issn(list(inferred_yvk_issns)[0])
+                                                cit.setattr('cited_issnl', standardized_issn)
+                                                cit.setattr('result', 'success: exact match occurred with more than one ISSN and it was possible to decide which one is the correct through year-volume-inferred correction base')
+                                                fout.write(cit.to_json() + '\n')
 
                                         # Não houve desambiguação
                                         else:
@@ -263,11 +267,13 @@ def main():
 
                                                 # Validou e desambiguou com base secundária
                                                 if len(valid_fuzzy_match_issnls) == 1:
-                                                    fz_standardized_issn = standardizer.journal_issn(list(valid_fuzzy_match_issnls)[0])
-                                                    cit.setattr('cited_issnl', fz_standardized_issn)
-                                                    cit.setattr('result', 'success: fuzzy match ocurred and was validated through year-volume correction base')
-                                                    fout.write(cit.to_json() + '\n')
-                                                    fz_validated = True
+                                                    # ISSN indicado é um daqueles com dúvida
+                                                    if list(valid_fuzzy_match_issnls)[0] in cit.fuzzy_match_issnls:
+                                                        fz_standardized_issn = standardizer.journal_issn(list(valid_fuzzy_match_issnls)[0])
+                                                        cit.setattr('cited_issnl', fz_standardized_issn)
+                                                        cit.setattr('result', 'success: fuzzy match occurred and was validated through year-volume correction base')
+                                                        fout.write(cit.to_json() + '\n')
+                                                        fz_validated = True
 
                                         # Não validou, tenta usar volumes inferidos
                                         if not fz_validated:
@@ -288,10 +294,11 @@ def main():
                                                     fz_inferred_yvk_issns = fz_inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
                                             if len(fz_inferred_yvk_issns) == 1:
-                                                standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
-                                                cit.setattr('cited_issnl', standardized_issn)
-                                                cit.setattr('result', 'success: fuzzy match ocurred and was validated through year-volume-inferred correction base')
-                                                fout.write(cit.to_json() + '\n')
+                                                if list(fz_inferred_yvk_issns)[0] in cit.fuzzy_match_issnls:
+                                                    standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
+                                                    cit.setattr('cited_issnl', standardized_issn)
+                                                    cit.setattr('result', 'success: fuzzy match occurred and was validated through year-volume-inferred correction base')
+                                                    fout.write(cit.to_json() + '\n')
 
                                             # Não houve validação
                                             else:
