@@ -121,7 +121,7 @@ def main():
         print('Deduplicando...')
         line_counter = 0
 
-        with open(params.input, encoding='iso-8859-1') as fin:
+        with open(params.input, encoding='utf-8') as fin:
             line = fin.readline()
             while line:
                 line_counter += 1
