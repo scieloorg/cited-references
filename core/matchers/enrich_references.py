@@ -232,6 +232,9 @@ def main():
                                                 cit.setattr('cited_issnl', standardized_issn)
                                                 cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF)
                                                 fout.write(cit.to_json() + '\n')
+                                            else:
+                                                cit.setattr('result_code', ERROR_EXACT_MATCH_UNDECIDABLE)
+                                                fout.write(cit.to_json() + '\n')
 
                                         # Não houve desambiguação
                                         else:
@@ -286,7 +289,7 @@ def main():
                                                     if list(valid_fuzzy_match_issnls)[0] in cit.fuzzy_match_issnls:
                                                         fz_standardized_issn = standardizer.journal_issn(list(valid_fuzzy_match_issnls)[0])
                                                         cit.setattr('cited_issnl', fz_standardized_issn)
-                                                        cit.setattr('result', 'success: fuzzy match occurred and was validated through year-volume correction base')
+                                                        cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL)
                                                         fout.write(cit.to_json() + '\n')
                                                         fz_validated = True
 
@@ -313,6 +316,10 @@ def main():
                                                     standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
                                                     cit.setattr('cited_issnl', standardized_issn)
                                                     cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
+                                                    fout.write(cit.to_json() + '\n')
+                                                # Não houve validação
+                                                else:
+                                                    cit.setattr('result_code', ERROR_FUZZY_MATCH_UNDECIDABLE)
                                                     fout.write(cit.to_json() + '\n')
 
                                             # Não houve validação
