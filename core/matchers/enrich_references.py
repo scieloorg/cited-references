@@ -8,7 +8,10 @@ from core.model.citation import Citation
 from result_code import *
 
 
-MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '3'))
+MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '2'))
+MIN_TITLE_LENGTH = int(os.environ.get('MIN_TITLE_LENGTH', '6'))
+MIN_WORDS_NUMBER = int(os.environ.get('MIN_WORDS_NUMBER', '2'))
+MIN_COMPARABLE_WORDS_NUMBER = int(os.environ.get('MIN_COMPARABLE_WORDS_NUMBER', '2'))
 
 
 def fuzzy_match(title: str, data: dict, standardize=False):
