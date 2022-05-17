@@ -201,9 +201,10 @@ def main():
 
                                             # Desambiguou com base secundária
                                             if len(yvk_issns) == 1:
+                                                standardized_issn = standardizer.journal_issn(yvk_issns[0])
+
                                                 # ISSN indicado é um daqueles com dúvida
-                                                if yvk_issns[0] in cit.exact_match_issnls:
-                                                    standardized_issn = standardizer.journal_issn(yvk_issns[0])
+                                                if standardized_issn in cit.exact_match_issnls:
                                                     cit.setattr('cited_issnl', standardized_issn)
                                                     cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL)
                                                     fout.write(cit.to_json() + '\n')
@@ -228,9 +229,10 @@ def main():
                                                 inferred_yvk_issns = inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
                                         if len(inferred_yvk_issns) == 1:
+                                            standardized_issn = standardizer.journal_issn(list(inferred_yvk_issns)[0])
+
                                             # ISSN indicado é um daqueles com dúvida
-                                            if list(inferred_yvk_issns)[0] in cit.exact_match_issnls:
-                                                standardized_issn = standardizer.journal_issn(list(inferred_yvk_issns)[0])
+                                            if standardized_issn in cit.exact_match_issnls:
                                                 cit.setattr('cited_issnl', standardized_issn)
                                                 cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF)
                                                 fout.write(cit.to_json() + '\n')
@@ -287,9 +289,10 @@ def main():
 
                                                 # Validou e desambiguou com base secundária
                                                 if len(valid_fuzzy_match_issnls) == 1:
+                                                    fz_standardized_issn = standardizer.journal_issn(list(valid_fuzzy_match_issnls)[0])
+
                                                     # ISSN indicado é um daqueles com dúvida
-                                                    if list(valid_fuzzy_match_issnls)[0] in cit.fuzzy_match_issnls:
-                                                        fz_standardized_issn = standardizer.journal_issn(list(valid_fuzzy_match_issnls)[0])
+                                                    if fz_standardized_issn in cit.fuzzy_match_issnls:
                                                         cit.setattr('cited_issnl', fz_standardized_issn)
                                                         cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL)
                                                         fout.write(cit.to_json() + '\n')
@@ -314,8 +317,9 @@ def main():
                                                     fz_inferred_yvk_issns = fz_inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
                                             if len(fz_inferred_yvk_issns) == 1:
-                                                if list(fz_inferred_yvk_issns)[0] in cit.fuzzy_match_issnls:
-                                                    standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
+                                                standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
+
+                                                if standardized_issn in cit.fuzzy_match_issnls:                                                    
                                                     cit.setattr('cited_issnl', standardized_issn)
                                                     cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
                                                     fout.write(cit.to_json() + '\n')
