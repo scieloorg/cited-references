@@ -138,12 +138,11 @@ def main():
                     fout.write(cit.to_json() + '\n')
                 else:
 
-                    try:
-                        del cit.result
-                        del cit.result_code
-                        del cit.cited_issnl
-                    except AttributeError:
-                        ...
+                    for pv in ['result', 'result_code', 'cited_issnl']:
+                        try:
+                            del cit.__dict__[pv]
+                        except KeyError:
+                            ...
 
                     # To Do
                     # Caso exista cited_doi, este campo deve ser usado para identificar o ISSN citado
