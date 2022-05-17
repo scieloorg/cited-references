@@ -22,9 +22,9 @@ def fuzzy_match(title: str, data: dict, standardize=False):
     else:
         cleaned_title = title
 
-    comparable_words = [w for w in words if len(w) > MIN_WORD_LENGTH]
+    valid_words = [w for w in words if len(w) >= MIN_WORD_LENGTH]
 
-    if len(cleaned_title) > 6 and len(words) >= 3 and len(comparable_words) >= 2:
+    if len(cleaned_title) >= MIN_TITLE_LENGTH and len(words) >= MIN_WORDS_NUMBER and len(valid_words) >= MIN_COMPARABLE_WORDS_NUMBER:
         pattern = r'[\w|\s]*'.join([word for word in words]) + '[\w|\s]*'
 
         title_pattern = re.compile(pattern, re.UNICODE)
