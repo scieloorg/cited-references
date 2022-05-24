@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-import os
 import statistics
 import sys
-sys.path.append(os.getcwd())
 
-from model.file_manager import FileManager
+from core.model.file_manager import FileManager
 
 
 def calculate_b(x: list, y: list):

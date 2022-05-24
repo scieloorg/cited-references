@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import json
 import sys
-from util.string_processor import StringProcessor
+
+from core.util.string_processor import StringProcessor
 
 
 def get_doi2cited_form_dict(path_refs_wos_doi):

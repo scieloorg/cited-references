@@ -219,21 +219,19 @@ def main():
                                                     fout.write(cit.to_json() + '\n')
                                                     validated = True
 
-                                    # Não validou, tenta usar volumes inferidos
+                                    # Não validou, tenta usar volumes inferidos com base ano-volume
+                                    inferred_volumes = []
+                                    title_year_volume_inferred = set()
                                     if not validated:
-                                        title_year_volume_infered = set()
-
                                         for i in exact_match_issnls:
                                             cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
                                             if cit_volume_inferred:
-                                                vols = [vi for vi in range(cit_volume_inferred - 1, cit_volume_inferred + 2) if vi > 0]
-                                                for voli in vols:
-                                                    title_year_volume_infered.add('-'.join([cited_journal_title_cleaned, cited_year_cleaned, str(voli)]))
-
-                                                cit.setattr('volume_inferred', str('#'.join([str(v) for v in vols])))
+                                                inferred_volumes.extend([vi for vi in range(cit_volume_inferred - 1, cit_volume_inferred + 2) if vi > 0])
+                                                for voli in inferred_volumes:
+                                                    title_year_volume_inferred.add('-'.join([cited_journal_title_cleaned, cited_year_cleaned, str(voli)]))
 
                                         inferred_yvk_issns = set()
-                                        for tyvi in title_year_volume_infered:
+                                        for tyvi in title_year_volume_inferred:
                                             if tyvi in title_year_volume2issn:
                                                 inferred_yvk_issns = inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
@@ -340,20 +338,18 @@ def main():
                                                         fz_validated = True
 
                                         # Não validou, tenta usar volumes inferidos
+                                        fz_inferred_volumes = []
+                                        fz_title_year_volume_inferred = set()
                                         if not fz_validated:
-                                            title_year_volume_infered = set()
-
                                             for i in fuzzy_match_issnls:
                                                 cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
                                                 if cit_volume_inferred is not None:
-                                                    vols = [vi for vi in range(1 - cit_volume_inferred, cit_volume_inferred + 2) if vi > 0]
-                                                    for voli in vols:
-                                                        title_year_volume_infered.add('-'.join([cited_journal_title_cleaned, cited_year_cleaned, str(voli)]))
-
-                                                    cit.setattr('volume_inferred', str('#'.join([str(v) for v in vols])))
+                                                    fz_inferred_volumes.extend([vi for vi in range(1 - cit_volume_inferred, cit_volume_inferred + 2) if vi > 0])
+                                                    for voli in fz_inferred_volumes:
+                                                        fz_title_year_volume_inferred.add('-'.join([cited_journal_title_cleaned, cited_year_cleaned, str(voli)]))
 
                                             fz_inferred_yvk_issns = set()
-                                            for tyvi in title_year_volume_infered:
+                                            for tyvi in fz_title_year_volume_inferred:
                                                 if tyvi in title_year_volume2issn:
                                                     fz_inferred_yvk_issns = fz_inferred_yvk_issns.union(title_year_volume2issn[tyvi])
 
