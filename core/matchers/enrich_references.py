@@ -183,37 +183,8 @@ def main():
                 if not params.ignore_previous_result and 'cited_issnl' in cit.__dict__:
                     fout.write(cit.to_json() + '\n')
                 else:
-
-                    for pv in ['result', 'result_code', 'cited_issnl']:
-                        try:
-                            del cit.__dict__[pv]
-                        except KeyError:
-                            ...
-
-                    # To Do
-                    # Caso exista cited_doi, este campo deve ser usado para identificar o ISSN citado
-                    # O ideal é ter um dicionário que mapeia DOI a código ISSN-L
-
-                    try:                    
-                        cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(cit.cited_journal).upper()
-                    except AttributeError:
-                        cited_journal_title_cleaned = ''
-
-                    if not cited_journal_title_cleaned:
-                        try:
-                            cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(cit.cited_source).upper()
-                        except AttributeError:
-                            cited_journal_title_cleaned = ''
-
-                    try:
-                        cited_year_cleaned = str(standardizer.document_publication_date(cit.cited_year, only_year=True))
-                    except Exception:
-                        cited_year_cleaned = ''
-
-                    try:
-                        cited_volume_cleaned = standardizer.issue_volume(cit.cited_vol)
-                    except Exception:
-                        cited_volume_cleaned = ''
+                    clean_previous_results(cit)
+                    cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned = extract_essential_data(cit)
 
                     # Caso haja título de periódico
                     if cited_journal_title_cleaned:
