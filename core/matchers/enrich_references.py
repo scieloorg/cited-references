@@ -70,6 +70,12 @@ def main():
     )
 
     parser.add_argument(
+        '--artifitial_title_year_volume_to_issn',
+        required=True,
+        help='Base de correção artificial Título de periódico, Ano, Volume -> ISSN'
+    )
+
+    parser.add_argument(
         '--equations',
         help='Base de correção ISSN -> Regressão Linear',
     )
@@ -116,6 +122,9 @@ def main():
 
     print('Carregando base Title Year Volume to ISSN...')
     title_year_volume2issn = file.load_year_volume(params.title_year_volume_to_issn, issn2issnl)
+
+    print('Carregando base artificial Title Year Volume to ISSN...')
+    artifitial_title_year_volume2issn = file.load_year_volume(params.artifitial_title_year_volume_to_issn, issn2issnl)
 
     print('Carregando regressões lineares')
     issn2equations = file.load_equations(params.equations)
