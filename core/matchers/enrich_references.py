@@ -357,8 +357,6 @@ def main():
                                                 standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
 
                                                 if standardized_issn in cit.fuzzy_match_issnls:                                                    
-                                            if standardized_issn in cit.fuzzy_match_issnls:                                                    
-                                                if standardized_issn in cit.fuzzy_match_issnls:                                                    
                                                     cit.setattr('cited_issnl', standardized_issn)
                                                     cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
                                                     cit.setattr('volume_inferred', str('#'.join([str(v) for v in fz_inferred_volumes])))
