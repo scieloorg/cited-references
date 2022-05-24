@@ -59,6 +59,32 @@ def clean_previous_results(citation):
         except KeyError:
             ...
 
+
+def extract_essential_data(citation):
+    try:                    
+        cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(citation.cited_journal).upper()
+    except AttributeError:
+        cited_journal_title_cleaned = ''
+
+    if not cited_journal_title_cleaned:
+        try:
+            cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(citation.cited_source).upper()
+        except AttributeError:
+            cited_journal_title_cleaned = ''
+
+    try:
+        cited_year_cleaned = str(standardizer.document_publication_date(citation.cited_year, only_year=True))
+    except Exception:
+        cited_year_cleaned = ''
+
+    try:
+        cited_volume_cleaned = standardizer.issue_volume(citation.cited_vol)
+    except Exception:
+        cited_volume_cleaned = ''
+
+    return cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned
+
+
 def main():
     parser = argparse.ArgumentParser()
 
