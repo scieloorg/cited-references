@@ -172,7 +172,7 @@ def main():
                         cited_year_cleaned = str(standardizer.document_publication_date(cit.cited_year, only_year=True))
                     except Exception:
                         cited_year_cleaned = ''
-   
+
                     try:
                         cited_volume_cleaned = standardizer.issue_volume(cit.cited_vol)
                     except Exception:
@@ -244,15 +244,47 @@ def main():
                                             if standardized_issn in cit.exact_match_issnls:
                                                 cit.setattr('cited_issnl', standardized_issn)
                                                 cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF)
+                                                cit.setattr('volume_inferred', str('#'.join([str(v) for v in inferred_volumes])))
                                                 fout.write(cit.to_json() + '\n')
-                                            else:
-                                                cit.setattr('result_code', ERROR_EXACT_MATCH_UNDECIDABLE)
-                                                fout.write(cit.to_json() + '\n')
+                                                validated = True
 
-                                        # Não houve desambiguação
-                                        else:
-                                            cit.setattr('result_code', ERROR_EXACT_MATCH_UNDECIDABLE)
-                                            fout.write(cit.to_json() + '\n')
+                                    # Não validou, tenta usar base ano-volume artificial
+                                    if not validated:
+                                        key_title_year_volume = '-'.join([cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned])
+                                        ktyv_values = artifitial_title_year_volume2issn.get(key_title_year_volume, set())
+                                        ktyv_values = ktyv_values.union(title_year_volume2issn.get(key_title_year_volume, set()))
+                                        if len(ktyv_values) == 1:
+                                            standardized_issn = standardizer.journal_issn(list(ktyv_values)[0])
+
+                                            if standardized_issn in cit.exact_match_issnls:
+                                                cit.setattr('cited_issnl', standardized_issn)
+                                                cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_ART)
+                                                fout.write(cit.to_json() + '\n')
+                                                validated = True
+
+                                    # Não validou, tenta usar volume inferido com base ano-volume artificial
+                                    if not validated:
+                                        inferred_artifitial_yvk_issns = set()
+
+                                        for tyvi in title_year_volume_inferred:
+                                            if tyvi in artifitial_title_year_volume2issn:
+                                                inferred_artifitial_yvk_issns = inferred_artifitial_yvk_issns.union(artifitial_title_year_volume2issn[tyvi])
+
+                                        if len(inferred_artifitial_yvk_issns) == 1:
+                                            standardized_issn = standardizer.journal_issn(list(inferred_artifitial_yvk_issns)[0])
+
+                                            # ISSN indicado é um daqueles com dúvida
+                                            if standardized_issn in cit.exact_match_issnls:
+                                                cit.setattr('cited_issnl', standardized_issn)
+                                                cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF_ART)
+                                                cit.setattr('volume_inferred', str('#'.join([str(v) for v in inferred_volumes])))
+                                                fout.write(cit.to_json() + '\n')
+                                                validated = True
+
+                                    # Não validou
+                                    if not validated:
+                                        cit.setattr('result_code', ERROR_EXACT_MATCH_YEAR_VOL_INF_ART)
+                                        fout.write(cit.to_json() + '\n')
 
                                 # Não há dados de ano para fazer desambiguação
                                 else:
