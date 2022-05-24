@@ -361,18 +361,52 @@ def main():
                                                 standardized_issn = standardizer.journal_issn(list(fz_inferred_yvk_issns)[0])
 
                                                 if standardized_issn in cit.fuzzy_match_issnls:                                                    
+                                            if standardized_issn in cit.fuzzy_match_issnls:                                                    
+                                                if standardized_issn in cit.fuzzy_match_issnls:                                                    
                                                     cit.setattr('cited_issnl', standardized_issn)
                                                     cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
+                                                    cit.setattr('volume_inferred', str('#'.join([str(v) for v in fz_inferred_volumes])))
                                                     fout.write(cit.to_json() + '\n')
-                                                # Não houve validação
-                                                else:
-                                                    cit.setattr('result_code', ERROR_FUZZY_MATCH_UNDECIDABLE)
-                                                    fout.write(cit.to_json() + '\n')
+                                                    fz_validated = True
 
-                                            # Não houve validação
-                                            else:
-                                                cit.setattr('result_code', ERROR_FUZZY_MATCH_UNDECIDABLE)
-                                                fout.write(cit.to_json() + '\n')
+                                        # Não validou, tenta usar base artificial de ano-volume
+                                        if not fz_validated:
+                                            key_fz_title_year_volume = '-'.join([cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned])
+                                            kftyv_values = artifitial_title_year_volume2issn.get(key_fz_title_year_volume, set())
+                                            kftyv_values = kftyv_values.union(title_year_volume2issn.get(key_fz_title_year_volume, set()))
+
+                                            if len(kftyv_values) == 1:
+                                                standardized_issn = standardizer.journal_issn(list(kftyv_values)[0])
+
+                                                if standardized_issn in cit.fuzzy_match_issnls:
+                                                    cit.setattr('cited_issnl', standardized_issn)
+                                                    cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_ART)
+                                                    fout.write(cit.to_json() + '\n')
+                                                    validated = True
+
+                                        # Não validou, tenta usar volume inferido com base artificial ano-volume
+                                        if not fz_validated:
+                                            fz_inferred_artifitial_yvk_issns = set()
+
+                                            for fz_tyvi in fz_title_year_volume_inferred:
+                                                if fz_tyvi in artifitial_title_year_volume2issn:
+                                                    fz_inferred_artifitial_yvk_issns = fz_inferred_artifitial_yvk_issns.union(artifitial_title_year_volume2issn[fz_tyvi])
+
+                                            if len(fz_inferred_artifitial_yvk_issns) == 1:
+                                                fz_standardized_issn = standardizer.journal_issn(list(fz_inferred_artifitial_yvk_issns)[0])
+
+                                                # ISSN indicado é um daqueles com dúvida
+                                                if fz_standardized_issn in cit.fuzzy_match_issnls:
+                                                    cit.setattr('cited_issnl', fz_standardized_issn)
+                                                    cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF_ART)
+                                                    cit.setattr('volume_inferred', str('#'.join([str(v) for v in fz_inferred_volumes])))
+                                                    fout.write(cit.to_json() + '\n')
+                                                    validated = True
+
+                                        # Não validou
+                                        if not fz_validated:
+                                            cit.setattr('result_code', ERROR_FUZZY_MATCH_YEAR_VOL_INF_ART)
+                                            fout.write(cit.to_json() + '\n')
 
                                     # Não houve correspondência inexata
                                     else:
