@@ -50,6 +50,15 @@ def infer_volume(issn: str, year: int, data: dict):
 
 def get_issns_list_sign(issns_list):
     return '#'.join(sorted(issns_list))
+
+
+def clean_previous_results(citation):
+    for pv in ['result', 'result_code', 'cited_issnl']:
+        try:
+            del citation.__dict__[pv]
+        except KeyError:
+            ...
+
 def main():
     parser = argparse.ArgumentParser()
 
