@@ -51,8 +51,8 @@ def infer_volume(issn: str, year: int, data: dict):
         return round(a + (b * year))
 
 
-def get_issns_list_sign(issns_list):
-    return '#'.join(sorted(issns_list))
+def get_issns_list_sign(issn_list):
+    return '#'.join(sorted(issn_list))
 
 
 def clean_previous_results(citation):
