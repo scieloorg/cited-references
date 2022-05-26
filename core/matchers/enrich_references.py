@@ -8,6 +8,7 @@ from core.model.citation import Citation
 from result_code import *
 
 
+LOGGING_LEVEL = os.environ.get('LOGGING_LEVEL', logging.INFO)
 MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '2'))
 MIN_TITLE_LENGTH = int(os.environ.get('MIN_TITLE_LENGTH', '6'))
 MIN_WORDS_NUMBER = int(os.environ.get('MIN_WORDS_NUMBER', '2'))
