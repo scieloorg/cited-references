@@ -88,6 +88,50 @@ def extract_essential_data(citation):
     return cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned
 
 
+def get_titles(issn_list, issn2titles):
+    titles = set()
+
+    for i in issn_list:
+        titles = titles.union(issn2titles.get(i, set()))
+
+    return titles
+
+
+def detect_file_encoding(path):
+    m = magic.Magic(mime_encoding=True)
+    
+    with open(path) as fin:
+        path_encoding = m.from_buffer(fin.read())
+
+        if path_encoding and path_encoding != 'binary':
+            return path_encoding
+
+    return 'utf-8'
+
+
+def gen_output_path(input_directory, input_path, output_path):
+    if input_directory:
+        base_name = os.path.basename(input_path)
+        file_name, file_ext = os.path.splitext(base_name)
+
+        current_version = 1
+        new_output = os.path.join(input_directory, f'{file_name}.{current_version}.enriched{file_ext}')
+        
+        new_version = current_version
+        while os.path.exists(new_output):
+            new_version += 1
+            new_output = new_output.replace(f'.{current_version}.enriched', f'.{new_version}.enriched')
+        
+        return new_output
+    
+    return output_path
+
+
+def is_file_to_enrich(file_name):
+    if 'enrich' in file_name:
+        return False
+
+    return True
 def main():
     parser = argparse.ArgumentParser()
 
