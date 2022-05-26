@@ -1,4 +1,6 @@
 import argparse
+import logging
+import magic
 import re
 import os
 
