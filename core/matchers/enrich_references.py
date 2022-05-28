@@ -10,6 +10,7 @@ from core.model.citation import Citation
 from result_code import *
 
 
+DEFAULT_CHARSET = os.environ.get('DEFAULT_CHARSET', 'utf-8')
 LOGGING_LEVEL = os.environ.get('LOGGING_LEVEL', logging.INFO)
 MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '2'))
 MIN_TITLE_LENGTH = int(os.environ.get('MIN_TITLE_LENGTH', '6'))
@@ -100,13 +101,13 @@ def get_titles(issn_list, issn2titles):
 def detect_file_encoding(path):
     m = magic.Magic(mime_encoding=True)
     
-    with open(path) as fin:
+    with open(path, 'rb') as fin:
         path_encoding = m.from_buffer(fin.read())
 
-        if path_encoding and path_encoding != 'binary':
+        if path_encoding and path_encoding not in ['binary', 'unknown-8bit']:
             return path_encoding
 
-    return 'utf-8'
+    return DEFAULT_CHARSET
 
 
 def gen_output_path(input_directory, input_path, output_path):
@@ -583,6 +584,7 @@ def main():
             line_counter = 0
 
             file_encoding = detect_file_encoding(in_file)
+            logging.debug(f'Charset detectado de {in_file} é {file_encoding}')
 
             with open(in_file, encoding=file_encoding) as fin:
                 line = fin.readline()
