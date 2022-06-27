@@ -536,7 +536,7 @@ def main():
 
     parser.add_argument(
         '--ignore_previous_result',
-        default=False,
+        default=True,
         action='store_true',
         help='Indica para ignorar cited_issnl pré-existente'
     )
