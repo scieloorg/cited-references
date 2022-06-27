@@ -1,3 +1,4 @@
+import logging
 import pickle
 
 
@@ -53,16 +54,16 @@ class FileManager(object):
         issn2issnl = {}
         issn2titles = {}
         for r in base_issnl2all[1:]:
-            issns = r[1].split('#')
+            issns = r[3].split('#')
             issnl = r[0].strip()
-            titles = r[2].split('#')
+            titles = r[4].split('#')
             for i in issns:
                 if i not in issn2issnl:
                     issn2issnl[i] = issnl
                     issn2titles[i] = titles
                 else:
                     if issn2issnl[i] != issnl:
-                        print('ERROR: values (issnls) %s != %s for key (issn) %s' % (issnl, issn2issnl[i], i))
+                        logging.error(f'Valores de ISSN-L {issnl} e {issn2issnl[i]} diferem para chave {i}')
         del base_issnl2all
         return issn2issnl, issn2titles
 
@@ -97,7 +98,7 @@ class FileManager(object):
         title2yv = {}
         il2yv = {}
         for els in year_volume_base:
-            issn = els[0].replace('-', '').strip()
+            issn = els[0].strip()
             il = i2l.get(issn, issn)
             title = els[1].strip()
             year = els[2].strip()
