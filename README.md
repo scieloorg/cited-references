@@ -1,72 +1,73 @@
 # Scripts
 
-**Clone scripts and install dependencies**
-    
-    $ apt get install python3-venv
-    $ git clone git@github.com:scieloorg/cited-references.git
-    $ cd cited-references
-    $ python3 -m venv .venv
-    $ source .venv/bin/activate
-    $ pip install -r requirements.txt
+## Installation
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+## Scripts
+**1. Collect PID code**
+
+Collect PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). Passing the argument "date_from" is optional. In case of do not passing this argument, the script will use the current date as "date from".
+
+```bash
+# With a date
+./collect_pid.py \
+    2019-06-01
+
+# Without date
+./collect_pid.py
+```
+
+The script will generate a CSV file named `new-pids-from-2019-06-01.csv` (in the former case) in the local directory. The name's date part refers to the argument passed as parameter.
 
 
-## Collect PID
 
-Collect PIDs through the [articlemeta api](https://github.com/scieloorg/articlemetaapi). Pass a "date from" as an argument is optional. In case of do not pass a "date from" as an argument the script will consider the current date as "date from".
+**2. Collect document metadata**
 
-**How to use**
+Collect documents metadata through the endpoint [http://articlemeta.scielo.org/api/v1/article](http://articlemeta.scielo.org/api/v1/article). It receives a list of PIDs collected by the `Collect PID` script as data input to obtain the documents from the remote database SciELO. The script collects the documents in an async manner.
 
-Pass a "date from" as an argument (optional): 
+```bash
+./collect_document.py \
+    new-pids-from-2019-06-01.csv \
+    <MONGODB_STR_COLLECTION>
+```
 
-    $ ./collect_pid.py 2019-06-01
-
-or do not pass a "date from" as an argument (current date):
-
-    $ ./collect_pid.py
-
-The script will result in a CSV file named new-pids-from-2019-06-01.csv (in the former case) wrote in the directory of execution. The date part refers to the argument passed as a parameter.
+The script will collect all the documents (pids in the list new-pids-from-2019-06-01.csv) from the remote database SciELO and insert them into the a local MongoDB database.
 
 
-## Collect Document
+**3. Create a references database called ref_scielo**
 
-Collect Documents through the endpoint [http://articlemeta.scielo.org/api/v1/article](http://articlemeta.scielo.org/api/v1/article). It receives the list of PIDs collected by the Collect PIDs script as data input to obtain the documents from the remote database SciELO. _The script collects the documents in an async manner_.
+Create the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each \_id is '\_'.join([pid, citation_index_number]) and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
 
-**How to use**
-
-    $ ./collect_document.py new-pids-from-2019-06-01.csv refSciELO_001
-
-The script will collect all the documents (pids in the list new-pids-from-2019-06-01.csv) from the remote database SciELO and insert them into the local database (refSciELO_001).
+```bash
+./create_ref_scielo.py ref_scielo
+```
 
 
-## Create references database ref_scielo
-
-Create the references database named ref_scielo. The script receives as data input the name of the documents database. A new database (in the local MongoDB) will be created where each _id is '_'.join([pid, citation_index_number]) and each value is the citation's content of the documents database. The ref_scielo's collections will be the same as of the documents' database.
-
-**How to use**
-
-    $ ./create_ref_scielo.py refSciELO_001
-
-
-## Update references database ref_scielo
+**4. Update the references database ref_scielo**
 
 Update the references database named ref_scielo. The script receives as data input the name of the documents database and the new_pids.txt generated in a previous step (collect_pid). The existing ref_scielo database will be updated with the new content of the documents database.
 
-**How to use**
+```bash
+./update_ref_scielo.py ref_scielo new-pids-from-2019-06-10.csv ref_scielo
+```
 
-    $ ./update_ref_scielo.py refSciELO_001 new-pids-from-2019-06-10.csv ref_scielo
-
-
-## Analyze Documents
+**5. Analyze Documents**
 
 Analyze Documents with regard to several attributes. It acts in the documents database.
 
-
-## Analyze References
+**6. Analyze References**
 
 Analyze References with regard to several attributes (e.g., presence or not of a valid DOI, type of reference). It acts in the references database.
 
 
-## Collect CrossRef Metadata from DOI
+**7. Collect CrossRef Metadata from DOI**
 
 Collect metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the Document's DOI (Reference's DOI) as data input. The DOI's metadata is saved into the references database (fields crossref_metadata and status), according to the following status codes:
 
@@ -77,24 +78,24 @@ Status | Description
 -2 | Request time out (try again)
 Empty | DOI not searched
 
-**How to use**
-
-    $ ./collect_metadata_from_crossref.py ref_scielo rafael.damaceno@ufabc.edu.br no-status
+```bash
+./collect_metadata_from_crossref.py ref_scielo rafael.damaceno@ufabc.edu.br no-status
+```
 
 The term "no-status" informs the script to collect metadata for all the references without a status code, i.e, those that it does not tried to collect in previous executions. For collecting all references with a status -1, change the term "no-status" to "-1" (the same idea is valid wit the "-2" status).
 
 
-## Collect CrossRef Metadata from PID Metadata
+**8. Collect CrossRef Metadata from PID Metadata**
 
 Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the document's metadata as data input.
 
 
-## Collect CrossRef Metadata from Reference Metadata
+**9. Collect CrossRef Metadata from Reference Metadata**
 
 Collects metadata from the [crossref rest-api](https://www.crossref.org/services/metadata-delivery/rest-api/). It receives the references' metadata as data input.
 
 
-## Create dictionary Metadata to PID SciELO
+**10. Create dictionary Metadata to PID SciELO**
 
 Create dictionaries where each key is a comma separated string of document's metadata (attributes) and the value is the corresponding PID SciELO. It receives SciELO documents database name as data input. Returns two dictionaries in the binary format (readable through "pickle"). There are, until now, two combinations of document's attributes. The possible attributes are as follows:
 
@@ -120,21 +121,22 @@ _Dictionary Minor_
 
     FAC,FALS,PD,JT,IN,IV
 
-**How to use**
+```bash
+./create_metadata2pid.py ref_scielo
+```
 
-    $ ./create_metadata2pid.py refSciELO_001
 
-
-## Update dictionary Metadata to PID SciELO
+**11. Update dictionary Metadata to PID SciELO**
 
 Update the dictionaries of Document's Metadata (key) to PID SciELO (value). It receives SciELO documents database name and the list of new pids to be included in the dictionaries. Returns new dictionaries in binary format. 
 
-**How to use**
 
-    $ ./update_metadata2pid.py refSciELO_001 new-pids-from-2019-06-10.csv
+```bash
+./update_metadata2pid.py ref_scielo new-pids-from-2019-06-10.csv
+```
 
 
-## Match reference with PID SciELO
+**12. Match reference with PID SciELO**
 
 Match Documents' references (getting its metadata to generate a key) with the dictionary of Metadata: PID SciELO.
 
@@ -145,18 +147,18 @@ This package includes several micro auxiliary scripts. One of them is count that
 
 ### Count
 
-**How to use**
-
-    $ ./utils/count.py ref_scielo
+```bash
+./utils/count.py ref_scielo
+```
 
 where ref_scielo is the database's name.
 
 
 ### Status Check
 
-**How to use**
-
-    $ ./utils/status_ckeck.py ref_scielo
+```bash
+./utils/status_ckeck.py ref_scielo
+```
 
 where ref_scielo is the references database's name.
 
@@ -182,39 +184,53 @@ These are the scripts responsible for collecting data from several indexes datab
 
 **How to use**
 
-    $ ./scrapper/latindex.py collect # to collect data
-    $ ./scrapper/latindex.py parse # to parse data to a csv file
+```bash
+# to collect data
+./scrapper/latindex.py collect
 
+# to parse data to a csv file
+./scrapper/latindex.py parse 
+```
 
 ### Locator Plus
-**How to use**
 
-    $ ./scrapper/locator_plus.py collect FILE_NLM_TITLES # to collect data related to NLM names inse FILE_NLM_TITLES
-    $ ./scrapper/locator_plus.py parse DIR_HTMLS # to parse html files inside DIR_HTMLS folder to a comma-separated-value file
+```bash
+# to collect data related to NLM names inse FILE_NLM_TITLES
+./scrapper/locator_plus.py collect FILE_NLM_TITLES 
+
+# to parse html files inside DIR_HTMLS folder to a comma-separated-value file
+./scrapper/locator_plus.py parse DIR_HTMLS 
+```
 
 
 ### Web of Science
+```bash
+# to collect data
+./scrapper/wos.py collect
 
-**How to use**
-
-    $ ./scrapper/wos.py collect # to collect data
-    $ ./scrapper/wos.py parse # to parse data to a csv file
+# to parse data to a csv file
+,/scrapper/wos.py parse
+```
 
 ### Ulrich
     
-**How to use**
+```bash
+# to collect data in html format
+./scrapper/ulrich.py collect
 
-    $ ./scrapper/ulrich.py collect # to collect data in html format
-    $ ./scrapper/ulrich.py parse # to parse data to a csv file
+# to parse data to a csv file 
+./scrapper/ulrich.py parse 
+```
 
 
 ## Cleaner-Filter-Portal
 
-Clean and filter the CSV file provided by issn-scrapper. Removes invalid rows and ignores unnecessary columns. 
+Clean and filter the CSV file provided by issn-scrapper. Removes invalid rows and ignores unnecessary columns.
 
-**How to use**
-
-    $ ./cleaner/portal.py data.csv # to remove invalid rows and useless columns from the file data.csv
+```bash
+# to remove invalid rows and useless columns from the file data.csv
+./cleaner/portal.py data.csv 
+```
     
 which will returns a file named data_filtered.csv
    
@@ -223,7 +239,7 @@ which will returns a file named data_filtered.csv
 
 Merge all CSV files (from the indexes) into one CSV file where each line has one key (ISSN-L) and several columns (ISSN, TITLE, ABBREVIATED-TITLE, EXTRA-TITLE)
 
-**How to use**
-
-    $ ./merge_indexes.py indexes/ # to merge all CSVs inside folder indexes
-    
+```bash
+# to merge all CSVs inside folder indexes
+./merge_indexes.py indexes/
+```

@@ -5,3 +5,11 @@ data/*
 .venv/*
 .idea/*
 Pipfile
+*.tsv
+*.log
+.idea
+*.egg-info
+.build
+.dist
+build
+dist

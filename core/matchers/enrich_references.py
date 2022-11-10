@@ -1,0 +1,616 @@
+import argparse
+import logging
+import magic
+import re
+import os
+
+from scielo_scholarly_data import standardizer
+from core.util import file
+from core.model.citation import Citation
+from result_code import *
+
+
+DEFAULT_CHARSET = os.environ.get('DEFAULT_CHARSET', 'utf-8')
+LOGGING_LEVEL = os.environ.get('LOGGING_LEVEL', logging.INFO)
+MIN_WORD_LENGTH = int(os.environ.get('MIN_WORD_LENGTH', '2'))
+MIN_TITLE_LENGTH = int(os.environ.get('MIN_TITLE_LENGTH', '6'))
+MIN_WORDS_NUMBER = int(os.environ.get('MIN_WORDS_NUMBER', '2'))
+MIN_COMPARABLE_WORDS_NUMBER = int(os.environ.get('MIN_COMPARABLE_WORDS_NUMBER', '2'))
+
+
+def fuzzy_match(title: str, data: dict, standardize=False):
+    words = title.split(' ')
+
+    if standardize:
+        cleaned_title = standardizer.journal_title_for_deduplication(title).upper()
+    else:
+        cleaned_title = title
+
+    valid_words = [w for w in words if len(w) >= MIN_WORD_LENGTH]
+
+    if len(cleaned_title) >= MIN_TITLE_LENGTH and len(words) >= MIN_WORDS_NUMBER and len(valid_words) >= MIN_COMPARABLE_WORDS_NUMBER:
+        pattern = r'[\w|\s]*'.join([word for word in words]) + '[\w|\s]*'
+
+        title_pattern = re.compile(pattern, re.UNICODE)
+
+        fuzzy_matches = []
+
+        for oficial_title in [ot for ot in data.keys() if ot.startswith(words[0])]:
+            match = title_pattern.fullmatch(oficial_title)
+
+            if match:
+                fuzzy_matches.extend(data[oficial_title].split('#'))
+
+        return set(fuzzy_matches)
+
+    return set()
+
+
+def infer_volume(issn: str, year: int, data: dict):
+    if issn in data:
+        a, b = data[issn]
+        return round(a + (b * year))
+
+
+def get_issns_list_sign(issn_list):
+    return '#'.join(sorted(issn_list))
+
+
+def clean_previous_results(citation):
+    for pv in ['result', 'result_code', 'cited_issnl']:
+        try:
+            del citation.__dict__[pv]
+        except KeyError:
+            ...
+
+
+def extract_essential_data(citation):
+    try:                    
+        cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(citation.cited_journal).upper()
+    except AttributeError:
+        cited_journal_title_cleaned = ''
+
+    if not cited_journal_title_cleaned:
+        try:
+            cited_journal_title_cleaned = standardizer.journal_title_for_deduplication(citation.cited_source).upper()
+        except AttributeError:
+            cited_journal_title_cleaned = ''
+
+    try:
+        cited_year_cleaned = str(standardizer.document_publication_date(citation.cited_year, only_year=True))
+    except Exception:
+        cited_year_cleaned = ''
+
+    try:
+        cited_volume_cleaned = standardizer.issue_volume(citation.cited_vol)
+    except Exception:
+        cited_volume_cleaned = ''
+
+    return cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned
+
+
+def get_titles(issn_list, issn2titles):
+    titles = set()
+
+    for i in issn_list:
+        titles = titles.union(issn2titles.get(i, set()))
+
+    return titles
+
+
+def detect_file_encoding(path):
+    m = magic.Magic(mime_encoding=True)
+    
+    with open(path, 'rb') as fin:
+        path_encoding = m.from_buffer(fin.read())
+
+        if path_encoding and path_encoding not in ['binary', 'unknown-8bit']:
+            return path_encoding
+
+    return DEFAULT_CHARSET
+
+
+def gen_output_path(input_directory, input_path, output_path):
+    if input_directory:
+        base_name = os.path.basename(input_path)
+        file_name, file_ext = os.path.splitext(base_name)
+
+        current_version = 1
+        new_output = os.path.join(input_directory, f'{file_name}.{current_version}.enriched{file_ext}')
+        
+        new_version = current_version
+        while os.path.exists(new_output):
+            new_version += 1
+            new_output = new_output.replace(f'.{current_version}.enriched', f'.{new_version}.enriched')
+        
+        return new_output
+    
+    return output_path
+
+
+def is_file_to_enrich(file_name):
+    if 'enrich' in file_name:
+        return False
+
+    return True
+
+
+def enrich(data, format, ignore_previous_result, title2issnl, issn2titles, title_year_volume2issn, artifitial_title_year_volume2issn, issn2equations, use_fuzzy):
+    cit = Citation(data, format=format)
+
+    # Caso citação já tenha sido tratada e ISSN-L é válido
+    if not ignore_previous_result and 'cited_issnl' in cit.__dict__:
+        return cit
+    else:
+        clean_previous_results(cit)
+        cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned = extract_essential_data(cit)
+
+        # Caso haja título de periódico
+        if cited_journal_title_cleaned:
+
+            # Caso ocorra correspondência exata entre título de periódico e base de correção
+            if cited_journal_title_cleaned in title2issnl:
+                exact_match_issnls = title2issnl.get(cited_journal_title_cleaned, '').split('#')
+                exact_match_issnls_std = [standardizer.journal_issn(i) for i in exact_match_issnls]
+                cit.setattr('issnls_size', len(exact_match_issnls))
+
+                # Correspondência exata com apenas um ISSN-L
+                if len(exact_match_issnls) == 1:
+                    standardized_issn = exact_match_issnls_std[0]
+                    cit.setattr('cited_issnl', standardized_issn)
+                    cit.setattr('result_code', SUCCESS_EXACT_MATCH)
+                    return cit
+
+                # Correspondência com mais de um ISSN-L
+                else:
+                    # Caso haja ano em formato de dígito
+                    if cited_year_cleaned.isdigit():
+
+                        # Caso haja volume
+                        if cited_volume_cleaned != '':
+
+                            # Usa chave titulo-ano-volume em busca na base real
+                            title_year_volume_key = '-'.join([cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned])
+
+                            if title_year_volume_key in title_year_volume2issn:
+                                yvk_issns = list(title_year_volume2issn[title_year_volume_key])
+
+                                if len(yvk_issns) == 1:
+                                    yvk_standardized_issn = standardizer.journal_issn(yvk_issns[0])
+                                    if yvk_standardized_issn in exact_match_issnls_std:
+                                        cit.setattr('cited_issnl', yvk_standardized_issn)
+                                        cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL)
+                                        cit.setattr('title_year_volume_key', title_year_volume_key)
+                                        return cit
+
+                        # Usa chave titulo-ano com volume inferido em busca na base real
+                        result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                        for i in exact_match_issnls:
+                            cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
+
+                            if cit_volume_inferred:
+                                for voli in [vi for vi in range(cit_volume_inferred - 1, cit_volume_inferred + 2) if vi > 0]:
+                                    tyv_key = '-'.join([
+                                        cited_journal_title_cleaned, 
+                                        cited_year_cleaned, 
+                                        str(voli)
+                                    ])
+                                    
+                                    possible_issnls = title_year_volume2issn.get(tyv_key, set())
+                                    if len(possible_issnls) > 0:
+                                        result_issn_to_data['issns'] = result_issn_to_data['issns'].union(possible_issnls)
+                                        
+                                        possible_issnls_sign = get_issns_list_sign(possible_issnls)
+                                        if possible_issnls_sign not in result_issn_to_data['tyv_keys']:
+                                            result_issn_to_data['tyv_keys'][possible_issnls_sign] = set()
+
+                                        result_issn_to_data['tyv_keys'][possible_issnls_sign].add(tyv_key)
+
+                                    if len(result_issn_to_data['issns']) > 1:
+                                        cit.setattr('result_code', ERROR_EXACT_MATCH_YEAR_VOL_INF)
+                                        return cit
+
+                        if len(result_issn_to_data['issns']) == 1:
+                            matched_issn = list(result_issn_to_data['issns'])[0]
+                            matched_issn_std = standardizer.journal_issn(matched_issn)
+                            matched_tyv_key = list(result_issn_to_data['tyv_keys'][matched_issn])[0]
+
+                            if matched_issn_std in exact_match_issnls_std:
+                                cit.setattr('cited_issnl', matched_issn_std)
+                                cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF)
+                                cit.setattr('title_year_volume_key', matched_tyv_key)
+                                return cit
+
+                        # Usa chave titulo-ano-volume em busca na base artificial
+                        if cited_volume_cleaned != '':
+                            key_title_year_volume = '-'.join([cited_journal_title_cleaned, cited_year_cleaned, cited_volume_cleaned])
+                            ktyv_values = artifitial_title_year_volume2issn.get(key_title_year_volume, set())
+                            ktyv_values = ktyv_values.union(title_year_volume2issn.get(key_title_year_volume, set()))
+                            
+                            if len(ktyv_values) == 1:
+                                ktyv_standardized_issn = standardizer.journal_issn(list(ktyv_values)[0])
+
+                                if ktyv_standardized_issn in exact_match_issnls_std:
+                                    cit.setattr('cited_issnl', ktyv_standardized_issn)
+                                    cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_ART)
+                                    cit.setattr('title_year_volume_key', key_title_year_volume)
+                                    return cit
+
+                        # Usa chave titulo-ano-volume inferido em busca na base artificial
+                        result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                        for i in exact_match_issnls:
+                            cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
+
+                            if cit_volume_inferred:
+                                for voli in [vi for vi in range(cit_volume_inferred - 1, cit_volume_inferred + 2) if vi > 0]:
+                                    tyv_key = '-'.join([
+                                        cited_journal_title_cleaned, 
+                                        cited_year_cleaned, 
+                                        str(voli)
+                                    ])
+                                    
+                                    possible_issnls = artifitial_title_year_volume2issn.get(tyv_key, set())
+                                    if len(possible_issnls) > 0:
+                                        result_issn_to_data['issns'] = result_issn_to_data['issns'].union(possible_issnls)
+                                        
+                                        possible_issnls_sign = get_issns_list_sign(possible_issnls)
+                                        if possible_issnls_sign not in result_issn_to_data['tyv_keys']:
+                                            result_issn_to_data['tyv_keys'][possible_issnls_sign] = set()
+
+                                        result_issn_to_data['tyv_keys'][possible_issnls_sign].add(tyv_key)
+
+                                    if len(result_issn_to_data['issns']) > 1:
+                                        cit.setattr('result_code', ERROR_EXACT_MATCH_YEAR_VOL_INF_ART)
+                                        return cit
+
+                        if len(result_issn_to_data['issns']) == 1:
+                            matched_issn = list(result_issn_to_data['issns'])[0]
+                            matched_issn_std = standardizer.journal_issn(matched_issn)
+                            matched_tyv_key = list(result_issn_to_data['tyv_keys'][matched_issn])[0]
+
+                            if matched_issn_std in exact_match_issnls_std:
+                                cit.setattr('cited_issnl', matched_issn_std)
+                                cit.setattr('result_code', SUCCESS_EXACT_MATCH_YEAR_VOL_INF_ART)
+                                cit.setattr('title_year_volume_key', matched_tyv_key)
+                                return cit
+
+                        # Não foi possível decidir qual é o ISSN-L correto
+                        cit.setattr('result_code', ERROR_EXACT_MATCH_UNDECIDABLE)
+                        return cit
+
+                    # Não há dados de ano para fazer desambiguação
+                    else:
+                        cit.setattr('result_code', ERROR_EXACT_MATCH_INVALID_YEAR)
+                        return cit
+
+            # Correspondência inexata
+            else:
+                if use_fuzzy:
+                    # Não há dados suficientes para validar uma possível correspondência inexata
+                    if not cited_year_cleaned.isdigit():
+                        cit.setattr('result_code', ERROR_FUZZY_MATCH_INVALID_YEAR)
+                        return cit
+
+                    else:
+                        fuzzy_match_issnls = fuzzy_match(cited_journal_title_cleaned, title2issnl)
+
+                        # Há correspondência inexata com um ou mais códigos ISSN-L
+                        if len(fuzzy_match_issnls) > 0:
+                            cit.setattr('issnls_size', len(fuzzy_match_issnls))
+                            
+                            # Caso haja volume
+                            if cited_volume_cleaned != '':
+
+                                # Usa chave titulo-ano-volume com títulos possíveis em busca na base real
+                                fz_result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                                for fz_title in get_titles(fuzzy_match_issnls, issn2titles):
+                                    fz_tyv_key = '-'.join([
+                                        fz_title, 
+                                        cited_year_cleaned, 
+                                        cited_volume_cleaned
+                                    ])
+
+                                    fz_possible_issnls = title_year_volume2issn.get(fz_tyv_key, set())
+                                    if len(fz_possible_issnls) > 0:
+                                        fz_result_issn_to_data['issns'] = fz_result_issn_to_data['issns'].union(fz_possible_issnls)
+
+                                        fz_possible_issnls_sign = get_issns_list_sign(fz_possible_issnls)
+                                        if fz_possible_issnls_sign not in fz_result_issn_to_data['tyv_keys']:
+                                            fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign] = set()
+                                        fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign].add(fz_tyv_key)
+
+                                        if len(fz_result_issn_to_data['issns']) > 1:
+                                            cit.setattr('result_code', ERROR_FUZZY_MATCH_YEAR_VOL)
+                                            return cit
+
+                                if len(fz_result_issn_to_data['issns']) == 1:
+                                    fz_matched_issn = list(fz_result_issn_to_data['issns'])[0]
+                                    fz_matched_issn_std = standardizer.journal_issn(fz_matched_issn)
+                                    fz_matched_tyv_key = list(fz_result_issn_to_data['tyv_keys'][fz_matched_issn])[0]
+
+                                    if fz_matched_issn in fuzzy_match_issnls:
+                                        cit.setattr('cited_issnl', fz_matched_issn_std)
+                                        cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL)
+                                        cit.setattr('title_year_volume_key', fz_matched_tyv_key)
+                                        return cit
+                            
+                            # Usa chave titulo-ano-volume com títulos possíveis e volumes inferidos em busca na base real
+                            fz_result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                            for i in fuzzy_match_issnls:
+                                fz_cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
+
+                                if fz_cit_volume_inferred:
+                                    for voli in [vi for vi in range(fz_cit_volume_inferred - 1, fz_cit_volume_inferred + 2) if vi > 0]:
+                                        fz_tyv_key = '-'.join([
+                                            cited_journal_title_cleaned,
+                                            cited_year_cleaned,
+                                            str(voli),
+                                        ])
+                                        
+                                        fz_possible_issnls = title_year_volume2issn.get(fz_tyv_key, set())
+                                        if len(fz_possible_issnls) > 0:
+                                            fz_result_issn_to_data['issns'] = fz_result_issn_to_data['issns'].union(fz_possible_issnls)
+
+                                            fz_possible_issnls_sign = get_issns_list_sign(fz_possible_issnls)
+                                            if fz_possible_issnls_sign not in fz_result_issn_to_data['tyv_keys']:
+                                                fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign] = set()
+
+                                            fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign].add(fz_tyv_key)
+
+                                        if len(fz_result_issn_to_data['issns']) > 1:
+                                            cit.setattr('result_code', ERROR_FUZZY_MATCH_YEAR_VOL_INF)
+                                            return cit
+
+                            if len(fz_result_issn_to_data['issns']) == 1:
+                                fz_matched_issn = list(fz_result_issn_to_data['issns'])[0]
+                                fz_matched_issn_std = standardizer.journal_issn(fz_matched_issn)
+                                fz_matched_tyv_key = list(fz_result_issn_to_data['tyv_keys'][fz_matched_issn])[0]
+
+                                if fz_matched_issn in fuzzy_match_issnls:
+                                    cit.setattr('cited_issnl', fz_matched_issn_std)
+                                    cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF)
+                                    cit.setattr('title_year_volume_key', fz_matched_tyv_key)
+                                    return cit
+
+                            # Usa chave titulo-ano-volume com títulos possíveis em busca na base artificial
+                            fz_result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                            if cited_volume_cleaned != '':
+                                for fz_title in get_titles(fuzzy_match_issnls, issn2titles):
+                                    fz_tyv_key = '-'.join([
+                                        fz_title,
+                                        cited_year_cleaned,
+                                        cited_volume_cleaned,
+                                    ])
+
+                                    fz_possible_issnls = artifitial_title_year_volume2issn.get(fz_tyv_key, set())
+                                    if len(fz_possible_issnls) > 0:
+                                        fz_result_issn_to_data['issns'] = fz_result_issn_to_data['issns'].union(fz_possible_issnls)
+
+                                        fz_possible_issnls_sign = get_issns_list_sign(fz_possible_issnls)
+                                        if fz_possible_issnls_sign not in fz_result_issn_to_data['tyv_keys']:
+                                            fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign] = set()
+                                        fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign].add(fz_tyv_key)
+
+                                        if len(fz_result_issn_to_data['issns']) > 1:
+                                            cit.setattr('result_code', ERROR_FUZZY_MATCH_YEAR_VOL_ART)
+                                            return cit
+                                
+                                if len(fz_result_issn_to_data['issns']) == 1:
+                                    fz_matched_issn = list(fz_result_issn_to_data['issns'])[0]
+                                    fz_matched_issn_std = standardizer.journal_issn(fz_matched_issn)
+                                    fz_matched_tyv_key = list(fz_result_issn_to_data['tyv_keys'][fz_matched_issn])[0]
+
+                                    if fz_matched_issn in fuzzy_match_issnls:
+                                        cit.setattr('cited_issnl', fz_matched_issn_std)
+                                        cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_ART)
+                                        cit.setattr('title_year_volume_key', fz_matched_tyv_key)
+                                        return cit
+                                            
+                            # Usa chave titulo-ano-volume com títulos possíveis e volumes inferidos em busca na base artificial                                            
+                            fz_result_issn_to_data = {'issns': set(), 'tyv_keys': {}}
+                            for i in fuzzy_match_issnls:
+                                fz_cit_volume_inferred = infer_volume(i, int(cited_year_cleaned), issn2equations)
+
+                                if fz_cit_volume_inferred:
+                                    for voli in [vi for vi in range(fz_cit_volume_inferred - 1, fz_cit_volume_inferred + 2) if vi > 0]:
+                                        for fz_title in get_titles([i], issn2titles):
+                                            fz_tyv_key = '-'.join([
+                                                fz_title,
+                                                cited_year_cleaned,
+                                                str(voli),
+                                            ])
+                                            
+                                            fz_possible_issnls = artifitial_title_year_volume2issn.get(fz_tyv_key, set())
+                                            if len(fz_possible_issnls) > 0:
+                                                fz_result_issn_to_data['issns'] = fz_result_issn_to_data['issns'].union(fz_possible_issnls)
+
+                                                fz_possible_issnls_sign = get_issns_list_sign(fz_possible_issnls)
+                                                if fz_possible_issnls_sign not in fz_result_issn_to_data['tyv_keys']:
+                                                    fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign] = set()
+
+                                                fz_result_issn_to_data['tyv_keys'][fz_possible_issnls_sign].add(fz_tyv_key)
+
+                                            if len(fz_result_issn_to_data['issns']) > 1:
+                                                cit.setattr('result_code', ERROR_FUZZY_MATCH_YEAR_VOL_INF_ART)
+                                                return cit
+
+                            if len(fz_result_issn_to_data['issns']) == 1:
+                                fz_matched_issn = list(fz_result_issn_to_data['issns'])[0]
+                                fz_matched_issn_std = standardizer.journal_issn(fz_matched_issn)
+                                fz_matched_tyv_key = list(fz_result_issn_to_data['tyv_keys'][fz_matched_issn])[0]
+
+                                if fz_matched_issn in fuzzy_match_issnls:                                                    
+                                    cit.setattr('cited_issnl', fz_matched_issn_std)
+                                    cit.setattr('result_code', SUCCESS_FUZZY_MATCH_YEAR_VOL_INF_ART)
+                                    cit.setattr('title_year_volume_key', fz_matched_tyv_key)
+                                    return cit
+                                        
+
+                            # Não validou
+                            cit.setattr('result_code', ERROR_FUZZY_MATCH_UNDECIDABLE)
+                            return cit
+
+                        # Não houve correspondência inexata
+                        else:
+                            cit.setattr('result_code', ERROR_JOURNAL_TITLE_NOT_FOUND)
+                            return cit
+
+                # Não tentou fazer correspondência
+                else:
+                    cit.setattr('result_code', NOT_CONDUCTED_MATCH_FORCED_BY_USER)
+                    return cit
+
+        # Caso não haja título de periódico
+        else:
+            # Mas há DOI
+            if hasattr(cit, 'cited_doi') and cit.cited_doi:
+                cit.setattr('result_code', NOT_CONDUCTED_MATCH_DOI_EXISTS)
+                return cit
+
+            # E não há DOI
+            else:
+                cit.setattr('result_code', ERROR_JOURNAL_TITLE_IS_EMPTY)
+                return cit
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--title_to_issnl',
+        required=True,
+        help='Base de correção Título de periódico -> ISSN-L',
+    )
+
+    parser.add_argument(
+        '--issnl_to_all',
+        required=True,
+        help='Base de correção ISSNL -> Metadados',
+    )
+
+    parser.add_argument(
+        '--title_year_volume_to_issn',
+        required=True,
+        help='Base de correção Título de periódico, Ano, Volume -> ISSN',
+    )
+
+    parser.add_argument(
+        '--artifitial_title_year_volume_to_issn',
+        required=True,
+        help='Base de correção artificial Título de periódico, Ano, Volume -> ISSN'
+    )
+
+    parser.add_argument(
+        '--equations',
+        help='Base de correção ISSN -> Regressão Linear',
+    )
+
+    parser.add_argument(
+        '--use_fuzzy',
+        action='store_true',
+        help='Usar deduplicação aproximada de Título de periódico',
+    )
+
+    parser.add_argument(
+        '--output',
+        default='results.jsonl',
+        help='Arquivo de resultados, isto é, com referências citadas enriquecidas'
+    )
+
+    parser.add_argument(
+        '--input',
+        help='Arquivo de entrada, isto é, com referências citadas a serem enriquecidas'
+    )
+
+    parser.add_argument(
+        '--input_dir',
+        help='Diretório de entrada, isto é, com arquivos contendo referências citadas a serem enriquecidas'
+    )
+
+    parser.add_argument(
+        '--input_format',
+        default='json',
+        choices=['csv', 'json'],
+        help='Formato de arquivo de entrada'
+    )
+
+    parser.add_argument(
+        '--ignore_previous_result',
+        default=True,
+        action='store_true',
+        help='Indica para ignorar cited_issnl pré-existente'
+    )
+
+    params = parser.parse_args()
+
+    logging.basicConfig(
+        level=LOGGING_LEVEL,
+        format='[%(asctime)s] %(levelname)s %(message)s',
+        datefmt='%d/%b/%Y %H:%M:%S',
+    )
+
+    if not params.input and not params.input_dir:
+        logging.error('Informe parâmetro input ou input_dir')
+        exit(1)
+
+    if params.input_dir:
+        input_pathfiles = sorted([os.path.join(params.input_dir, f) for f in os.listdir(params.input_dir) if is_file_to_enrich(f)])
+    else:
+        input_pathfiles = [params.input,]
+
+    total_files = len(input_pathfiles)
+    logging.info(f'Há {total_files} arquivo(s) a ser(em) enriquecido(s)')
+
+    logging.info('Carregando base Title to ISSN-L...')
+    title2issnl = file.load_title_to_issnl(params.title_to_issnl)
+
+    logging.info('Carregando base ISSN-L to All...')
+    issn2issnl, issn2titles = file.load_issnl_to_all(params.issnl_to_all)
+
+    logging.info('Carregando base Title Year Volume to ISSN...')
+    title_year_volume2issn = file.load_year_volume(params.title_year_volume_to_issn, issn2issnl)
+
+    logging.info('Carregando base artificial Title Year Volume to ISSN...')
+    artifitial_title_year_volume2issn = file.load_year_volume(params.artifitial_title_year_volume_to_issn, issn2issnl)
+
+    logging.info('Carregando regressões lineares')
+    issn2equations = file.load_equations(params.equations)
+
+    for in_file in input_pathfiles:
+        out_file = gen_output_path(params.input_dir, in_file, params.output)
+
+        with open(out_file, 'w') as fout:
+            logging.info(f'Enriquecendo {in_file} em {out_file}...')
+            line_counter = 0
+
+            file_encoding = detect_file_encoding(in_file)
+            logging.debug(f'Charset detectado de {in_file} é {file_encoding}')
+
+            with open(in_file, encoding=file_encoding) as fin:
+                line = fin.readline()
+
+                while line:
+                    line_counter += 1
+                    if line_counter % 100 == 0:
+                        logging.debug(f'{line_counter}')
+                        fout.flush()
+
+                    citation_enriched = enrich(
+                        line, 
+                        format=params.input_format, 
+                        ignore_previous_result=params.ignore_previous_result,
+                        title2issnl=title2issnl,
+                        issn2titles=issn2titles,
+                        title_year_volume2issn=title_year_volume2issn,
+                        artifitial_title_year_volume2issn=artifitial_title_year_volume2issn,
+                        issn2equations=issn2equations,
+                        use_fuzzy=params.use_fuzzy,
+                    )
+
+                    fout.write(citation_enriched.to_json() + '\n')
+
+                    line = fin.readline()
+
+
+if __name__ == '__main__':
+    main()
